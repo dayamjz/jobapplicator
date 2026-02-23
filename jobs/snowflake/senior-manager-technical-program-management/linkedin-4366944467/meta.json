@@ -6,7 +6,9 @@
   "searchId": "sr-tpm",
   "jobId": "linkedin-4366944467",
   "idSource": "site_prefixed",
-  "status": "approved",
+  "status": "applied",
+  "lastError": null,
   "compensation": "",
-  "pay": ""
+  "pay": "",
+  "appliedAt": "2026-02-23T22:08:54.532Z"
 }

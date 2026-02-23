@@ -7,10 +7,10 @@
   "jobId": "linkedin-4366194430",
   "idSource": "site_prefixed",
   "status": "needs_manual",
-  "compensation": "",
-  "pay": "",
   "lastError": {
     "message": "Apply flow did not reach submission",
-    "at": "2026-02-23T22:16:57.774Z"
-  }
+    "at": "2026-02-23T21:34:38.754Z"
+  },
+  "compensation": "",
+  "pay": ""
 }

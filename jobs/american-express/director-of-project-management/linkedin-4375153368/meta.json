@@ -6,11 +6,11 @@
   "searchId": "head-of-program",
   "jobId": "linkedin-4375153368",
   "idSource": "site_prefixed",
-  "status": "needs_manual",
+  "status": "approved",
   "compensation": "",
   "pay": "",
   "lastError": {
     "message": "Apply flow did not reach submission",
-    "at": "2026-02-23T22:14:40.725Z"
+    "at": "2026-02-23T22:21:52.416Z"
   }
 }

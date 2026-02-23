@@ -6,7 +6,11 @@
   "searchId": "sr-tpm-remote",
   "jobId": "linkedin-4358910292",
   "idSource": "site_prefixed",
-  "status": "approved",
+  "status": "needs_manual",
+  "lastError": {
+    "message": "Apply flow did not reach submission",
+    "at": "2026-02-23T22:39:00.401Z"
+  },
   "compensation": "",
   "pay": ""
 }

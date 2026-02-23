@@ -6,11 +6,9 @@
   "searchId": "sr-tpm",
   "jobId": "linkedin-4374771610",
   "idSource": "site_prefixed",
-  "status": "needs_manual",
+  "status": "applied",
+  "appliedAt": "2026-02-23T21:01:54.790Z",
+  "lastError": null,
   "compensation": "",
-  "pay": "",
-  "lastError": {
-    "message": "Apply flow did not reach submission",
-    "at": "2026-02-23T22:15:43.841Z"
-  }
+  "pay": ""
 }
