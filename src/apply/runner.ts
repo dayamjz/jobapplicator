@@ -56,6 +56,10 @@ export interface JobFolder {
   status: string;
 }
 
+export interface RunApplyLoopOptions {
+  targetJobId?: string;
+}
+
 function updateMeta(metaPath: string, updates: Record<string, unknown>): void {
   if (!existsSync(metaPath)) return;
   const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
@@ -96,6 +100,31 @@ export function findApprovedJobs(): JobFolder[] {
     });
   }
   return list;
+}
+
+export function findJobById(jobId: string): JobFolder | null {
+  const jobsRoot = join(process.cwd(), JOBS_DIR);
+  if (!existsSync(jobsRoot)) return null;
+  const metaPaths: string[] = [];
+  collectMetaPaths(jobsRoot, metaPaths);
+  for (const metaPath of metaPaths) {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    if (meta.jobId !== jobId) continue;
+    if (meta.status === "pending_review" || meta.status === "needs_manual") {
+      meta.status = "approved";
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+    }
+    return {
+      site: meta.site,
+      jobId: meta.jobId,
+      role: meta.title,
+      company: meta.company,
+      url: meta.URL,
+      path: dirname(metaPath),
+      status: meta.status,
+    };
+  }
+  return null;
 }
 
 export async function runApplyForJob(
@@ -210,7 +239,7 @@ export async function runApplyForJob(
   }
 }
 
-export async function runApplyLoop(): Promise<void> {
+export async function runApplyLoop(options: RunApplyLoopOptions = {}): Promise<void> {
   const { migrated } = migrateJobsToCompanyTitleLayout();
   if (migrated > 0) {
     console.log(`Migrated ${migrated} job folder(s) to jobs/<company>/<title>/<id> layout.`);
@@ -218,10 +247,19 @@ export async function runApplyLoop(): Promise<void> {
 
   const config = loadConfig();
   const applied = loadAppliedJobs();
-  const jobs = findApprovedJobs();
+  const jobs = options.targetJobId
+    ? (() => {
+        const target = findJobById(options.targetJobId!);
+        return target ? [target] : [];
+      })()
+    : findApprovedJobs();
 
   if (jobs.length === 0) {
-    console.log("No approved jobs to apply for.");
+    if (options.targetJobId) {
+      console.log(`No matching job found for --jobId=${options.targetJobId}`);
+    } else {
+      console.log("No approved jobs to apply for.");
+    }
     return;
   }
 
@@ -237,12 +275,23 @@ export async function runApplyLoop(): Promise<void> {
   }
 
   const profileDir = getBrowserProfileDir();
-  const context = profileDir
-    ? await chromium.launchPersistentContext(profileDir, {
-        headless: false,
-        args: ["--disable-blink-features=AutomationControlled"],
-      })
-    : await chromium.launchPersistentContext("", { headless: false });
+  let context: BrowserContext;
+  try {
+    context = profileDir
+      ? await chromium.launchPersistentContext(profileDir, {
+          headless: false,
+          args: ["--disable-blink-features=AutomationControlled"],
+        })
+      : await chromium.launchPersistentContext("", { headless: false });
+  } catch (err) {
+    const msg = (err as Error).message ?? "";
+    if (!profileDir || !msg.includes("ProcessSingleton")) throw err;
+    console.warn("Browser profile appears in use; retrying with an isolated temporary profile.");
+    context = await chromium.launchPersistentContext("", {
+      headless: false,
+      args: ["--disable-blink-features=AutomationControlled"],
+    });
+  }
 
   const browser = context.browser()!;
 

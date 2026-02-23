@@ -308,6 +308,14 @@ async function handleExternalApply(opts: LinkedInApplyOptions): Promise<boolean>
     case "greenhouse":
       result = await applyOnGreenhouse(atsOpts);
       break;
+    case "eightfold":
+      console.warn("  [linkedin] Eightfold is excluded from automation; marking as needs_manual");
+      result = false;
+      break;
+    case "oraclecloud":
+      console.warn("  [linkedin] Oracle Cloud ATS is excluded from automation; marking as needs_manual");
+      result = false;
+      break;
     case "unknown":
       result = await applyOnGeneric(atsOpts);
       break;

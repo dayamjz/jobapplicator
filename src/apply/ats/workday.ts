@@ -11,6 +11,7 @@ import {
   takeScreenshot,
   isLoginPage,
   isCaptchaPage,
+  extractFormFields,
 } from "../form-filler.js";
 import { matchFillAndFallback, logUnmatchedFields } from "../field-matcher.js";
 import { delayPageLoad, delayFormField } from "../../utils/delay.js";
@@ -27,6 +28,33 @@ export interface ATSApplyOptions {
   dryRun: boolean;
 }
 
+async function clickWorkdayEntryButton(page: Page, delays: DelayConfig): Promise<void> {
+  const fields = await extractFormFields(page);
+  if (fields.length > 0) return;
+
+  const applyLike = page
+    .locator("button, a")
+    .filter({ hasText: /apply|start application|apply manually|continue/i })
+    .first();
+  if (await applyLike.count() === 0) return;
+
+  const label = ((await applyLike.textContent().catch(() => "")) || "").trim();
+  if (label) {
+    console.log(`  [workday] Clicking entry button: ${label}`);
+  }
+  await applyLike.click({ force: true, timeout: 5000 }).catch(() => {});
+  await delayPageLoad(delays);
+}
+
+async function logWorkdayFieldScan(page: Page, step: number): Promise<void> {
+  const fields = await extractFormFields(page);
+  console.log(`  [workday] Field scan step ${step}: ${fields.length} field(s)`);
+  for (const f of fields.slice(0, 30)) {
+    const label = f.label || f.name || f.placeholder || "(no label)";
+    console.log(`    - [${f.required ? "required" : "optional"}] ${f.tag}/${f.type || "text"}: ${label}`);
+  }
+}
+
 export async function applyOnWorkday(opts: ATSApplyOptions): Promise<boolean> {
   const { page, job, profile, resumePath, coverText, delays, dryRun } = opts;
   console.log("  [workday] Starting Workday application flow");
@@ -40,6 +68,8 @@ export async function applyOnWorkday(opts: ATSApplyOptions): Promise<boolean> {
     return false;
   }
 
+  await clickWorkdayEntryButton(page, delays);
+
   let step = 0;
   const MAX_STEPS = 8;
 
@@ -48,11 +78,19 @@ export async function applyOnWorkday(opts: ATSApplyOptions): Promise<boolean> {
     console.log(`  [workday] Page ${step}`);
     await page.waitForLoadState("domcontentloaded").catch(() => {});
     await delayPageLoad(delays);
+    await logWorkdayFieldScan(page, step);
 
     await fillContactInfo(page, profile, delays);
     await uploadFileToVisible(page, resumePath);
 
     const { filled, unmatched } = await matchFillAndFallback(page, job, profile, coverText, delays, dryRun);
+    if (unmatched.length > 0) {
+      console.log(`  [workday] Fields still needing fill after pattern pass: ${unmatched.length}`);
+      for (const f of unmatched.slice(0, 20)) {
+        const label = f.label || f.name || f.placeholder || "(no label)";
+        console.log(`    - ${f.tag}/${f.type || "text"}: ${label}`);
+      }
+    }
     logUnmatchedFields(unmatched, page.url());
 
     const coverArea = await page.$("textarea[data-automation-id*='cover'], textarea[aria-label*='Cover Letter'], textarea[name*='cover']");
@@ -84,7 +122,7 @@ export async function applyOnWorkday(opts: ATSApplyOptions): Promise<boolean> {
 
     const nextBtn = await page.$("button[data-automation-id='bottom-navigation-next-button'], button:has-text('Next'), button:has-text('Continue'), button:has-text('Save and Continue')");
     if (nextBtn) {
-      await nextBtn.click();
+      await nextBtn.click({ force: true, timeout: 5000 }).catch(() => {});
       await delayPageLoad(delays);
       continue;
     }

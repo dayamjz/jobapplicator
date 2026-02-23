@@ -2,7 +2,7 @@
  * Detect which ATS platform a URL belongs to based on URL patterns.
  */
 
-export type ATSPlatform = "workday" | "lever" | "greenhouse" | "unknown";
+export type ATSPlatform = "workday" | "lever" | "greenhouse" | "eightfold" | "oraclecloud" | "unknown";
 
 const PATTERNS: [ATSPlatform, RegExp][] = [
   ["workday", /\.myworkdayjobs\.com/i],
@@ -11,6 +11,8 @@ const PATTERNS: [ATSPlatform, RegExp][] = [
   ["lever", /jobs\.lever\.co/i],
   ["greenhouse", /boards\.greenhouse\.io/i],
   ["greenhouse", /\.greenhouse\.io/i],
+  ["eightfold", /\.eightfold\.ai/i],
+  ["oraclecloud", /\.oraclecloud\.com/i],
 ];
 
 export function detectATS(url: string): ATSPlatform {

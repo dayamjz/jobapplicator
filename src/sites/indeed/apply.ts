@@ -138,6 +138,14 @@ export async function applyIndeed(opts: IndeedApplyOptions): Promise<boolean> {
       case "greenhouse":
         result = await applyOnGreenhouse(atsOpts);
         break;
+      case "eightfold":
+        console.warn("  [indeed] Eightfold is excluded from automation; marking as needs_manual");
+        result = false;
+        break;
+      case "oraclecloud":
+        console.warn("  [indeed] Oracle Cloud ATS is excluded from automation; marking as needs_manual");
+        result = false;
+        break;
       case "unknown":
         result = await applyOnGeneric(atsOpts);
         break;
