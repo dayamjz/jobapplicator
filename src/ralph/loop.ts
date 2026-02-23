@@ -1,6 +1,6 @@
 /**
  * Ralph-style loop per site: search -> generate -> write job folder -> open PR per job.
- * verifyCompletion: all jobs processed or cap (30 per site per 4h) reached.
+ * verifyCompletion: all jobs processed for each location/site pass.
  * Resume structure is extracted once at startup and reused for all jobs.
  */
 import { chromium } from "playwright";
@@ -8,7 +8,7 @@ import type { BrowserContext, Browser } from "playwright";
 import type { Site, Job, RunConfig } from "../types.js";
 import { getLocations } from "../types.js";
 import { loadConfig } from "../config/index.js";
-import { canOpenMorePrs, addOpenedPr, countOpenedPrsInWindow, isInAppliedList, isInOpenedPrs } from "../state/memory.js";
+import { addOpenedPr, isInAppliedList, isInOpenedPrs } from "../state/memory.js";
 import { generateForJob } from "../generation/generate.js";
 import type { PrebuiltPrompts } from "../generation/generate.js";
 import { extractResumeStructure } from "../generation/docx.js";
@@ -34,15 +34,8 @@ export async function runSiteLoop(
   browsers?: SharedBrowsers
 ): Promise<{ processed: number; stoppedReason: string }> {
   const config = loadConfig();
-  const maxPrs = config.maxPrsPerSitePerWindow;
-  const windowMs = config.rateLimitWindowHours * 60 * 60 * 1000;
-
-  if (!canOpenMorePrs(site, maxPrs, windowMs)) {
-    return { processed: 0, stoppedReason: "rate_limit_4h" };
-  }
-
-  const openedInWindow = countOpenedPrsInWindow(site, windowMs);
-  const maxJobs = Math.min(30, maxPrs - openedInWindow);
+  // Cap intentionally disabled: fetch a broad slice per pass.
+  const maxJobs = 200;
   let searchResult: { jobs: Job[] };
   switch (site) {
     case "linkedin":
@@ -60,19 +53,20 @@ export async function runSiteLoop(
 
   let processed = 0;
   for (const job of searchResult.jobs) {
-    if (!canOpenMorePrs(site, maxPrs, windowMs)) break;
     if (isInAppliedList(site, job.jobId)) continue;
-    if (isInOpenedPrs(site, job.jobId)) continue;
 
     await generateForJob(job, config.resumePath, config, resumeStructure, prebuiltPrompts);
     await openPrForJob(job);
-    addOpenedPr(site, job.jobId);
+    // Keep memory for visibility, but do not use it to suppress future matching.
+    if (!isInOpenedPrs(site, job.jobId)) {
+      addOpenedPr(site, job.jobId);
+    }
     processed++;
   }
 
   return {
     processed,
-    stoppedReason: processed >= maxJobs ? "cap_reached" : "no_more_jobs",
+    stoppedReason: "no_more_jobs",
   };
 }
 

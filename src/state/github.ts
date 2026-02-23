@@ -16,6 +16,15 @@ function safeTitle(s: string): string {
   return s.replace(/["`$\\]/g, "");
 }
 
+function remoteBranchExists(branchName: string): boolean {
+  try {
+    const out = run(`git ls-remote --heads origin "${branchName}"`);
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function openPrForJob(job: Job): Promise<void> {
   const roleSlug = slugify(job.role);
   const branchName = `application/${roleSlug}-${job.jobId}`;
@@ -24,6 +33,12 @@ export async function openPrForJob(job: Job): Promise<void> {
 
   if (!existsSync(jobPath)) {
     throw new Error(`Job folder not found: ${jobPath}`);
+  }
+
+  // Avoid branch churn and non-fast-forward push failures on already-tracked jobs.
+  if (remoteBranchExists(branchName)) {
+    console.log(`  Remote branch already exists for ${branchName}; skipping PR branch update.`);
+    return;
   }
 
   try {
