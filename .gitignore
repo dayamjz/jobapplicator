@@ -7,6 +7,9 @@ input/auth/
 .DS_Store
 jobs/
 !input/
+input/answer-cache.json
+input/*.docx
+debug-*.ts
 playwright-report/
 test-results/
 .cursor/
