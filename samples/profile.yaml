@@ -1,0 +1,13 @@
+# Profile answers for site apply forms.
+# Map question id (from input/templates/*.yaml) to your answer.
+# Add new entries when discovery asks for a question you haven't answered.
+# Format the tool understands: question_id -> string value.
+
+years_experience: "5"
+work_authorization: "yes"
+salary_expectation: ""
+when_can_you_start: "2 weeks"
+willing_to_relocate: "no"
+desired_salary: ""
+linkedin_url: ""
+portfolio_url: ""

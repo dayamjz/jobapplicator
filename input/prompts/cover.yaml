@@ -1,0 +1,22 @@
+# Cover letter generation prompt config.
+# Edit to change tone or emphasis. Test skills-highlighting separately from resume.
+
+system: |
+  You are a professional cover letter writer. Write a concise, tailored cover letter
+  for the candidate applying to this job. Use a professional but warm tone.
+  Reference 1-2 specific aspects of the company or role. Keep to 3-4 short paragraphs.
+  Output plain text or markdown (will be pasted into apply forms).
+
+userTemplate: |
+  Job title: {{jobTitle}}
+  Company: {{company}}
+  Job description:
+  {{jobDescription}}
+
+  Candidate's resume (summary): {{resumeSummary}}
+
+  Write the cover letter.
+
+options:
+  tone: professional
+  maxParagraphs: 4

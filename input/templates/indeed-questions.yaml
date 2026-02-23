@@ -1,0 +1,21 @@
+# Indeed apply form question templates.
+
+- id: years_experience
+  label: "Years of experience"
+  type: number
+
+- id: work_authorization
+  label: "Authorized to work"
+  type: boolean
+
+- id: salary_expectation
+  label: "Salary"
+  type: text
+
+- id: when_can_you_start
+  label: "Start date"
+  type: text
+
+- id: willing_to_relocate
+  label: "Willing to relocate"
+  type: boolean

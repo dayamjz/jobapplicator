@@ -1,0 +1,33 @@
+{
+  "resumePath": "./input/resume.docx",
+  "rateLimitWindowHours": 4,
+  "maxPrsPerSitePerWindow": 30,
+  "maxApplicationsPerSitePerWindow": 30,
+  "delays": {
+    "pageLoadMs": [1000, 3000],
+    "formFieldMs": [200, 800],
+    "betweenApplicationsMs": [5000, 15000],
+    "searchResultClickMs": [1000, 2000]
+  },
+  "applySchedule": "0 */4 * * *",
+  "searches": [
+    {
+      "id": "backend-remote",
+      "keywords": "backend engineer",
+      "location": "Remote",
+      "urlParams": {
+        "linkedin": { "f_TPR": "r86400" },
+        "indeed": {},
+        "greenhouse": {}
+      }
+    },
+    {
+      "id": "frontend-ny",
+      "keywords": "frontend developer",
+      "location": "New York, NY",
+      "urlParams": {
+        "linkedin": { "f_TPR": "r604800" }
+      }
+    }
+  ]
+}

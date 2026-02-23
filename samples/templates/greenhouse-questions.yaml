@@ -1,0 +1,22 @@
+# Greenhouse apply form question templates.
+# Greenhouse often has custom questions per company; add as you discover them.
+
+- id: years_experience
+  label: "Years of experience"
+  type: number
+
+- id: work_authorization
+  label: "Work authorization"
+  type: boolean
+
+- id: salary_expectation
+  label: "Salary"
+  type: text
+
+- id: portfolio_url
+  label: "Portfolio"
+  type: text
+
+- id: desired_salary
+  label: "Desired salary"
+  type: text

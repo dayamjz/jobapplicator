@@ -1,0 +1,24 @@
+# LinkedIn apply form question templates.
+# id: stable identifier used in profile.yaml
+# label: approximate text shown on the form (for matching)
+# type: text | number | select | boolean
+
+- id: years_experience
+  label: "Years of experience"
+  type: number
+
+- id: work_authorization
+  label: "Are you legally authorized to work"
+  type: boolean
+
+- id: salary_expectation
+  label: "Salary expectation"
+  type: text
+
+- id: when_can_you_start
+  label: "When can you start"
+  type: text
+
+- id: linkedin_url
+  label: "LinkedIn profile"
+  type: text

@@ -1,0 +1,38 @@
+{
+  "name": "job-applicator",
+  "version": "0.1.0",
+  "description": "LinkedIn, Indeed & Greenhouse job applicator with Ralph loop",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "init-inputs": "tsx src/scripts/init-inputs.ts",
+    "search": "tsx src/cli/search.ts",
+    "apply": "tsx src/cli/apply.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "ai": "^4.0.0",
+    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/anthropic": "^1.0.0",
+    "playwright": "^1.49.0",
+    "zod": "^3.23.0",
+    "simple-git": "^3.27.0",
+    "docx": "^8.5.0",
+    "mammoth": "^1.8.0",
+    "yaml": "^2.6.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
