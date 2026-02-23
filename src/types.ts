@@ -24,8 +24,12 @@ export interface DelayConfig {
 export interface SearchConfig {
   id: string;
   keywords: string;
-  location: string;
+  location: string | string[];
   urlParams?: Partial<Record<Site, Record<string, string>>>;
+}
+
+export function getLocations(search: SearchConfig): string[] {
+  return Array.isArray(search.location) ? search.location : [search.location];
 }
 
 export interface Job {

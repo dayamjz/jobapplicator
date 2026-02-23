@@ -1,0 +1,35 @@
+{
+  "resumePath": "./input/Brissa_Solis_Aguilar_Resume_PMO.docx",
+  "rateLimitWindowHours": 4,
+  "maxPrsPerSitePerWindow": 3,
+  "maxApplicationsPerSitePerWindow": 30,
+  "delays": {
+    "pageLoadMs": [1000, 3000],
+    "formFieldMs": [200, 800],
+    "betweenApplicationsMs": [5000, 15000],
+    "searchResultClickMs": [1000, 2000]
+  },
+  "applySchedule": "0 */4 * * *",
+  "searches": [
+    {
+      "id": "sr-tpm",
+      "keywords": "senior technical program manager",
+      "location": ["Remote", "San Francisco Bay Area"],
+      "urlParams": {
+        "linkedin": { "f_TPR": "r604800" },
+        "indeed": {},
+        "greenhouse": {}
+      }
+    },
+    {
+      "id": "head-of-program",
+      "keywords": "head of program management",
+      "location": ["Remote", "San Francisco Bay Area"],
+      "urlParams": {
+        "linkedin": { "f_TPR": "r604800" },
+        "indeed": {},
+        "greenhouse": {}
+      }
+    }
+  ]
+}

@@ -15,7 +15,7 @@ describe("buildLinkedInSearchUrl", () => {
       keywords: "software engineer",
       location: "San Francisco",
     };
-    const url = buildLinkedInSearchUrl(search);
+    const url = buildLinkedInSearchUrl(search, "San Francisco");
     expect(url).toContain("linkedin.com/jobs/search");
     expect(url).toContain("keywords=software+engineer");
     expect(url).toContain("location=San+Francisco");
@@ -28,7 +28,7 @@ describe("buildLinkedInSearchUrl", () => {
       location: "NYC",
       urlParams: { linkedin: { f_TPR: "r604800" } },
     };
-    const url = buildLinkedInSearchUrl(search);
+    const url = buildLinkedInSearchUrl(search, "NYC");
     expect(url).toContain("f_TPR=r604800");
   });
 });
@@ -40,7 +40,7 @@ describe("buildIndeedSearchUrl", () => {
       keywords: "front end",
       location: "Los Angeles",
     };
-    const url = buildIndeedSearchUrl(search);
+    const url = buildIndeedSearchUrl(search, "Los Angeles");
     expect(url).toContain("indeed.com/jobs");
     expect(url).toContain("q=");
     expect(url).toContain("l=");
@@ -55,7 +55,7 @@ describe("buildGreenhouseSearchUrl", () => {
       location: "Remote",
       urlParams: { greenhouse: { company: "acme" } },
     };
-    const url = buildGreenhouseSearchUrl(search);
+    const url = buildGreenhouseSearchUrl(search, "Remote");
     expect(url).toContain("boards.greenhouse.io");
     expect(url).toContain("for=engineer");
     expect(url).toContain("company=acme");

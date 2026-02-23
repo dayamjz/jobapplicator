@@ -3,6 +3,7 @@
  * verifyCompletion: all jobs processed or cap (30 per site per 4h) reached.
  */
 import type { Site, Job, RunConfig } from "../types.js";
+import { getLocations } from "../types.js";
 import { loadConfig } from "../config/index.js";
 import { loadAppliedJobs, loadOpenedPrs, canOpenMorePrs, addOpenedPr } from "../state/memory.js";
 import { generateForJob } from "../generation/generate.js";
@@ -12,7 +13,7 @@ import { searchGreenhouse } from "../sites/greenhouse/search.js";
 import { WINDOW_MS } from "../state/memory.js";
 import { openPrForJob } from "../state/github.js";
 
-export async function runSiteLoop(site: Site, searchId: string, search: RunConfig["searches"][0]): Promise<{ processed: number; stoppedReason: string }> {
+export async function runSiteLoop(site: Site, searchId: string, search: RunConfig["searches"][0], location: string): Promise<{ processed: number; stoppedReason: string }> {
   const config = loadConfig();
   const applied = loadAppliedJobs();
   const maxPrs = config.maxPrsPerSitePerWindow;
@@ -26,13 +27,13 @@ export async function runSiteLoop(site: Site, searchId: string, search: RunConfi
   let searchResult: { jobs: Job[] };
   switch (site) {
     case "linkedin":
-      searchResult = await searchLinkedIn(search, searchId, config.delays, maxJobs);
+      searchResult = await searchLinkedIn(search, searchId, config.delays, maxJobs, location);
       break;
     case "indeed":
-      searchResult = await searchIndeed(search, searchId, config.delays, maxJobs);
+      searchResult = await searchIndeed(search, searchId, config.delays, maxJobs, location);
       break;
     case "greenhouse":
-      searchResult = await searchGreenhouse(search, searchId, config.delays, maxJobs);
+      searchResult = await searchGreenhouse(search, searchId, config.delays, maxJobs, location);
       break;
     default:
       return { processed: 0, stoppedReason: "unknown_site" };
@@ -60,9 +61,12 @@ export async function runSiteLoop(site: Site, searchId: string, search: RunConfi
 export async function runAllSites(): Promise<void> {
   const config = loadConfig();
   for (const search of config.searches) {
-    for (const site of ["linkedin", "indeed", "greenhouse"] as Site[]) {
-      const result = await runSiteLoop(site, search.id, search);
-      console.log(`[${site}] ${search.id}: processed ${result.processed}, reason: ${result.stoppedReason}`);
+    const locations = getLocations(search);
+    for (const location of locations) {
+      for (const site of ["linkedin", "indeed", "greenhouse"] as Site[]) {
+        const result = await runSiteLoop(site, search.id, search, location);
+        console.log(`[${site}] ${search.id} (${location}): processed ${result.processed}, reason: ${result.stoppedReason}`);
+      }
     }
   }
 }

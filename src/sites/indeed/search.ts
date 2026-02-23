@@ -8,9 +8,9 @@ import type { SiteSearchResult } from "../types.js";
 import { delaySearchResultClick } from "../../utils/delay.js";
 import type { DelayConfig } from "../../types.js";
 
-export function buildSearchUrl(search: SearchConfig): string {
+export function buildSearchUrl(search: SearchConfig, location: string): string {
   const q = encodeURIComponent(search.keywords);
-  const l = encodeURIComponent(search.location);
+  const l = encodeURIComponent(location);
   return `https://www.indeed.com/jobs?q=${q}&l=${l}`;
 }
 
@@ -18,13 +18,14 @@ export async function searchIndeed(
   search: SearchConfig,
   searchId: string,
   delayConfig: DelayConfig,
-  maxJobs: number
+  maxJobs: number,
+  location: string
 ): Promise<SiteSearchResult> {
   const browser = await chromium.launch({ headless: true });
   const jobs: Job[] = [];
   try {
     const page = await browser.newPage();
-    await page.goto(buildSearchUrl(search), { waitUntil: "domcontentloaded" });
+    await page.goto(buildSearchUrl(search, location), { waitUntil: "domcontentloaded" });
     await delaySearchResultClick(delayConfig);
 
     const cards = await page.$$(".job_seen_beacon");

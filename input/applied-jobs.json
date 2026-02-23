@@ -1,4 +1,20 @@
 {
   "applied": [],
-  "openedPrs": []
+  "openedPrs": [
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4366194430",
+      "openedAt": "2026-02-23T17:04:16.466Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4374669032",
+      "openedAt": "2026-02-23T17:04:44.842Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4358910292",
+      "openedAt": "2026-02-23T17:05:16.865Z"
+    }
+  ]
 }

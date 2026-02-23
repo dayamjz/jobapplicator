@@ -9,7 +9,7 @@ import type { SiteSearchResult } from "../types.js";
 import { delaySearchResultClick } from "../../utils/delay.js";
 import type { DelayConfig } from "../../types.js";
 
-export function buildSearchUrl(search: SearchConfig): string {
+export function buildSearchUrl(search: SearchConfig, _location: string): string {
   const params = search.urlParams?.greenhouse ?? {};
   const base = "https://boards.greenhouse.io/embed/job_board";
   const q = new URLSearchParams(params);
@@ -21,7 +21,8 @@ export async function searchGreenhouse(
   search: SearchConfig,
   searchId: string,
   delayConfig: DelayConfig,
-  maxJobs: number
+  maxJobs: number,
+  _location: string
 ): Promise<SiteSearchResult> {
   const browser = await chromium.launch({ headless: true });
   const jobs: Job[] = [];

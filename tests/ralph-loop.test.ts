@@ -68,7 +68,7 @@ describe("runSiteLoop", () => {
       id: "s1",
       keywords: "dev",
       location: "NYC",
-    });
+    }, "NYC");
 
     expect(result.processed).toBe(0);
     expect(result.stoppedReason).toBe("rate_limit_4h");

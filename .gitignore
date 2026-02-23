@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.local
+input/auth/
 *.log
 .DS_Store
 jobs/

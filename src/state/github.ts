@@ -1,5 +1,6 @@
 /**
  * GitHub: create branch, commit job folder, push, open PR (one per job).
+ * Always returns to main branch after processing.
  */
 import { existsSync } from "fs";
 import { join } from "path";
@@ -7,11 +8,15 @@ import { execSync } from "child_process";
 import type { Job } from "../types.js";
 
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
 }
 
-function run(cmd: string): void {
-  execSync(cmd, { cwd: process.cwd(), stdio: "inherit" });
+function run(cmd: string): string {
+  return execSync(cmd, { cwd: process.cwd(), encoding: "utf-8" });
+}
+
+function safeTitle(s: string): string {
+  return s.replace(/["`$\\]/g, "");
 }
 
 export async function openPrForJob(job: Job): Promise<void> {
@@ -24,23 +29,31 @@ export async function openPrForJob(job: Job): Promise<void> {
   }
 
   try {
-    run(`git checkout -b ${branchName}`);
-  } catch {
-    run(`git checkout ${branchName}`);
-  }
-  run(`git add jobs/${roleSlug}/${job.jobId}/`);
-  run(`git commit -m "Application: ${job.title} at ${job.company}"`);
-  try {
-    run(`git push origin ${branchName}`);
-  } catch (err) {
-    console.warn("Push failed (run with GITHUB_TOKEN and remote configured):", (err as Error).message);
-  }
+    try {
+      run(`git checkout -b "${branchName}"`);
+    } catch {
+      run(`git checkout "${branchName}"`);
+    }
+    run(`git add -f "jobs/${roleSlug}/${job.jobId}/"`);
+    run(`git commit -m "Application: ${safeTitle(job.title)} at ${safeTitle(job.company)}"`);
+    try {
+      run(`git push origin "${branchName}"`);
+    } catch (err) {
+      console.warn("  Push failed:", (err as Error).message);
+    }
 
-  const repo = process.env.GITHUB_REPO_OWNER && process.env.GITHUB_REPO_NAME
-    ? `${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}`
-    : null;
-  if (repo) {
-    console.log(`Open PR: https://github.com/${repo}/compare/${branchName}?expand=1`);
-    console.log(`  Title: Application: ${job.title} at ${job.company}`);
+    const repo = process.env.GITHUB_REPO_OWNER && process.env.GITHUB_REPO_NAME
+      ? `${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}`
+      : null;
+    if (repo) {
+      console.log(`  PR: https://github.com/${repo}/compare/${branchName}?expand=1`);
+      console.log(`  Title: Application: ${job.title} at ${job.company}`);
+    }
+  } finally {
+    try {
+      run("git checkout main");
+    } catch {
+      console.warn("  Could not return to main branch");
+    }
   }
 }
