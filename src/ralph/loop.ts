@@ -17,6 +17,7 @@ import { searchLinkedIn, launchLinkedInContext } from "../sites/linkedin/search.
 import { searchIndeed } from "../sites/indeed/search.js";
 import { searchGreenhouse } from "../sites/greenhouse/search.js";
 import { openPrForJob } from "../state/github.js";
+import { migrateJobsToCompanyTitleLayout } from "../utils/job-path.js";
 
 interface SharedBrowsers {
   linkedInContext: BrowserContext;
@@ -76,6 +77,11 @@ export async function runSiteLoop(
 }
 
 export async function runAllSites(): Promise<void> {
+  const { migrated } = migrateJobsToCompanyTitleLayout();
+  if (migrated > 0) {
+    console.log(`Migrated ${migrated} job folder(s) to jobs/<company>/<title>/<id> layout.`);
+  }
+
   const config = loadConfig();
   console.log("Extracting resume structure (cached for all jobs)...");
   const resumeStructure = await extractResumeStructure(config.resumePath);

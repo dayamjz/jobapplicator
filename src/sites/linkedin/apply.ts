@@ -34,13 +34,13 @@ async function findApplyButton(page: Page): Promise<"easy" | "external" | null> 
   const easyApplyLink = await page.$("a[aria-label*='Easy Apply']");
   if (easyApplyLink) return "easy";
 
-  const cssBtn = await page.$("button.jobs-apply-button, button[aria-label*='Easy Apply'], button.jobs-apply-button--top-card");
+  const cssBtn = await page.$("button[aria-label*='Easy Apply'], a[aria-label*='Easy Apply']");
   if (cssBtn) return "easy";
 
   const textBtn = page.locator("button, a", { hasText: /Easy Apply/i });
   if (await textBtn.count() > 0) return "easy";
 
-  const externalLink = await page.$("a.jobs-apply-button--top-card, a[data-tracking-control-name*='apply'], a[aria-label*='Apply']");
+  const externalLink = await page.$("a.jobs-apply-button--top-card, a[data-tracking-control-name*='apply'], a[aria-label*='Apply'], button.jobs-apply-button, a.jobs-apply-button");
   if (externalLink) {
     const aria = await externalLink.getAttribute("aria-label") ?? "";
     if (aria.toLowerCase().includes("easy")) return "easy";
@@ -50,13 +50,16 @@ async function findApplyButton(page: Page): Promise<"easy" | "external" | null> 
   const externalText = page.locator("a", { hasText: /Apply on company/i });
   if (await externalText.count() > 0) return "external";
 
+  const externalButtonText = page.locator("button", { hasText: /Apply on company|Apply on company site|Apply externally/i });
+  if (await externalButtonText.count() > 0) return "external";
+
   return null;
 }
 
 async function handleEasyApplyModal(opts: LinkedInApplyOptions): Promise<boolean> {
   const { page, job, profile, resumePath, coverText, delays, dryRun } = opts;
 
-  let applyBtn = await page.$("a[aria-label*='Easy Apply'], button[aria-label*='Easy Apply'], button.jobs-apply-button");
+  let applyBtn = await page.$("a[aria-label*='Easy Apply'], button[aria-label*='Easy Apply']");
   if (!applyBtn) {
     const loc = page.locator("button, a", { hasText: /Easy Apply/i }).first();
     if (await loc.count() > 0) applyBtn = await loc.elementHandle();
@@ -234,22 +237,48 @@ async function handleEasyApplyModal(opts: LinkedInApplyOptions): Promise<boolean
 async function handleExternalApply(opts: LinkedInApplyOptions): Promise<boolean> {
   const { page, context, job, profile, templates, resumePath, coverText, delays, dryRun } = opts;
 
-  let externalLink = await page.$("a.jobs-apply-button--top-card, a[data-tracking-control-name*='apply'], a.jobs-apply-button");
-  if (!externalLink) {
-    const loc = page.locator("a", { hasText: /Apply on company/i }).first();
-    if (await loc.count() > 0) externalLink = await loc.elementHandle();
+  let externalEl =
+    await page.$("a.jobs-apply-button--top-card, a[data-tracking-control-name*='apply'], a.jobs-apply-button, a[aria-label*='Apply'], button[aria-label*='Apply']");
+
+  if (!externalEl) {
+    const candidateLocators = [
+      page.locator("a", { hasText: /Apply on company|Apply on company site|Apply externally/i }).first(),
+      page.locator("button", { hasText: /Apply on company|Apply on company site|Apply externally/i }).first(),
+      page.locator("a.jobs-apply-button").first(),
+      page.locator("button.jobs-apply-button").first(),
+    ];
+    for (const loc of candidateLocators) {
+      if (await loc.count() > 0) {
+        externalEl = await loc.elementHandle();
+        if (externalEl) break;
+      }
+    }
   }
-  if (!externalLink) {
+
+  if (!externalEl) {
     console.warn("  [linkedin] No external apply link found");
     return false;
   }
 
-  const [newPage] = await Promise.all([
+  const href = await externalEl.getAttribute("href").catch(() => null);
+  const [newPageFromClick] = await Promise.all([
     context.waitForEvent("page", { timeout: 10000 }).catch(() => null),
-    externalLink.click(),
+    externalEl.click({ force: true }).catch(() => {}),
   ]);
 
-  const targetPage = newPage ?? page;
+  // External applies should open in a new tab. If click doesn't spawn one, open href manually.
+  let targetPage = newPageFromClick;
+  if (!targetPage && href) {
+    const absUrl = href.startsWith("http") ? href : new URL(href, page.url()).toString();
+    const forcedTab = await context.newPage();
+    await forcedTab.goto(absUrl, { waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
+    targetPage = forcedTab;
+  }
+  if (!targetPage) {
+    console.warn("  [linkedin] External apply did not open a new tab");
+    return false;
+  }
+
   await delayPageLoad(delays);
   await targetPage.waitForLoadState("domcontentloaded").catch(() => {});
 
@@ -284,9 +313,7 @@ async function handleExternalApply(opts: LinkedInApplyOptions): Promise<boolean>
       break;
   }
 
-  if (newPage && newPage !== page) {
-    await newPage.close().catch(() => {});
-  }
+  await targetPage.close().catch(() => {});
   return result;
 }
 

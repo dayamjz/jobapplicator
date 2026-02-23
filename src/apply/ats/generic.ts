@@ -63,7 +63,7 @@ export async function applyOnGeneric(opts: ATSApplyOptions): Promise<boolean> {
           console.log("  [generic] Dry run: would click Submit");
           return true;
         }
-        await submitBtn.click();
+        await submitBtn.click({ force: true, timeout: 5000 }).catch(() => {});
         await delayPageLoad(delays);
         console.log("  [generic] Application submitted");
         return true;
@@ -72,7 +72,7 @@ export async function applyOnGeneric(opts: ATSApplyOptions): Promise<boolean> {
 
     const nextBtn = await page.$("button:has-text('Next'), button:has-text('Continue'), a:has-text('Next'), a:has-text('Continue')");
     if (nextBtn) {
-      await nextBtn.click();
+      await nextBtn.click({ force: true, timeout: 5000 }).catch(() => {});
       await delayPageLoad(delays);
       continue;
     }

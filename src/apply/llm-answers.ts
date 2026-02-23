@@ -79,8 +79,40 @@ function shouldSkipLlmForField(label: string): boolean {
     "first name",
     "last name",
     "email",
+    "chatbot",
+    "chat bot",
+    "cookie",
+    "cookie list",
+    "search",
+    "search box",
+    "search input",
+    "assistant",
+    "help",
+    "send button",
+    "captcha",
+    "newsletter",
+    "subscribe",
+    "sign in",
+    "log in",
+    "location city",
+    "location state",
   ];
   return skipPatterns.some((p) => norm === p || norm.includes(p));
+}
+
+async function isInteractableTextField(field: FieldInfo): Promise<boolean> {
+  const visible = await field.element.isVisible().catch(() => false);
+  if (!visible) return false;
+  return field.element.evaluate((el) => {
+    const inp = el as HTMLInputElement;
+    if ((inp as any).disabled) return false;
+    if ((inp as any).readOnly) return false;
+    const ariaHidden = inp.getAttribute("aria-hidden");
+    if (ariaHidden === "true") return false;
+    const style = window.getComputedStyle(inp);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    return true;
+  }).catch(() => false);
 }
 
 export async function generateAnswer(
@@ -160,6 +192,10 @@ export async function generateAndFillUnmatched(
     if (!label || label.length < 5) continue;
     if (shouldSkipLlmForField(label)) {
       console.log(`  [llm] Skipping non-LLM field: "${label}"`);
+      continue;
+    }
+    if (!(await isInteractableTextField(field))) {
+      console.log(`  [llm] Skipping non-interactable field: "${label}"`);
       continue;
     }
 

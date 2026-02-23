@@ -11,7 +11,7 @@
  *   Any failure logs error details into meta.json.lastError
  */
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext } from "playwright";
 import { loadConfig } from "../config/index.js";
@@ -25,11 +25,26 @@ import { delayPageLoad, delayBetweenApplications } from "../utils/delay.js";
 import { loadProfile, loadQuestionTemplates } from "../utils/profile.js";
 import { getResumeForUpload } from "../utils/resume-convert.js";
 import { getBrowserProfileDir } from "../utils/auth.js";
+import { migrateJobsToCompanyTitleLayout } from "../utils/job-path.js";
 import { applyLinkedIn } from "../sites/linkedin/apply.js";
 import { applyIndeed } from "../sites/indeed/apply.js";
 import type { Site, AppliedJobEntry } from "../types.js";
 
 const JOBS_DIR = "jobs";
+
+function collectMetaPaths(dir: string, out: string[]): void {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectMetaPaths(full, out);
+      continue;
+    }
+    if (entry.isFile() && entry.name === "meta.json") {
+      out.push(full);
+    }
+  }
+}
 
 export interface JobFolder {
   site: Site;
@@ -55,34 +70,30 @@ export function findApprovedJobs(): JobFolder[] {
   const applied = loadAppliedJobs();
   const list: JobFolder[] = [];
 
-  const roleDirs = readdirSync(jobsRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
-  for (const roleDir of roleDirs) {
-    const jobDirs = readdirSync(join(jobsRoot, roleDir.name), { withFileTypes: true }).filter((d) => d.isDirectory());
-    for (const jd of jobDirs) {
-      const metaPath = join(jobsRoot, roleDir.name, jd.name, "meta.json");
-      if (!existsSync(metaPath)) continue;
-      const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
-      if (meta.status === "applied" || meta.status === "needs_manual") continue;
+  const metaPaths: string[] = [];
+  collectMetaPaths(jobsRoot, metaPaths);
+  for (const metaPath of metaPaths) {
+    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+    if (meta.status === "applied" || meta.status === "needs_manual") continue;
 
-      if (meta.status === "pending_review") {
-        meta.status = "approved";
-        writeFileSync(metaPath, JSON.stringify(meta, null, 2));
-        console.log(`  Auto-approved (merged PR): ${meta.title} at ${meta.company}`);
-      }
-
-      if (meta.status !== "approved") continue;
-      if (applied.some((e) => e.site === meta.site && e.jobId === meta.jobId)) continue;
-
-      list.push({
-        site: meta.site,
-        jobId: meta.jobId,
-        role: meta.title,
-        company: meta.company,
-        url: meta.URL,
-        path: join(jobsRoot, roleDir.name, jd.name),
-        status: meta.status,
-      });
+    if (meta.status === "pending_review") {
+      meta.status = "approved";
+      writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+      console.log(`  Auto-approved (merged PR): ${meta.title} at ${meta.company}`);
     }
+
+    if (meta.status !== "approved") continue;
+    if (applied.some((e) => e.site === meta.site && e.jobId === meta.jobId)) continue;
+
+    list.push({
+      site: meta.site,
+      jobId: meta.jobId,
+      role: meta.title,
+      company: meta.company,
+      url: meta.URL,
+      path: dirname(metaPath),
+      status: meta.status,
+    });
   }
   return list;
 }
@@ -200,6 +211,11 @@ export async function runApplyForJob(
 }
 
 export async function runApplyLoop(): Promise<void> {
+  const { migrated } = migrateJobsToCompanyTitleLayout();
+  if (migrated > 0) {
+    console.log(`Migrated ${migrated} job folder(s) to jobs/<company>/<title>/<id> layout.`);
+  }
+
   const config = loadConfig();
   const applied = loadAppliedJobs();
   const jobs = findApprovedJobs();

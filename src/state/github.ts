@@ -3,10 +3,10 @@
  * Always returns to main branch after processing.
  */
 import { existsSync } from "fs";
-import { join } from "path";
 import { execSync } from "child_process";
 import type { Job } from "../types.js";
 import { slugify } from "../utils/slugify.js";
+import { getJobPathFromJob } from "../utils/job-path.js";
 
 function run(cmd: string): string {
   return execSync(cmd, { cwd: process.cwd(), encoding: "utf-8" });
@@ -19,7 +19,8 @@ function safeTitle(s: string): string {
 export async function openPrForJob(job: Job): Promise<void> {
   const roleSlug = slugify(job.role);
   const branchName = `application/${roleSlug}-${job.jobId}`;
-  const jobPath = join(process.cwd(), "jobs", roleSlug, job.jobId);
+  const jobPath = getJobPathFromJob(job);
+  const repoRelativeJobPath = jobPath.replace(`${process.cwd()}/`, "");
 
   if (!existsSync(jobPath)) {
     throw new Error(`Job folder not found: ${jobPath}`);
@@ -31,7 +32,7 @@ export async function openPrForJob(job: Job): Promise<void> {
     } catch {
       run(`git checkout "${branchName}"`);
     }
-    run(`git add -f "jobs/${roleSlug}/${job.jobId}/"`);
+    run(`git add -f "${repoRelativeJobPath}/"`);
     run(`git commit -m "Application: ${safeTitle(job.title)} at ${safeTitle(job.company)}"`);
     try {
       run(`git push origin "${branchName}"`);

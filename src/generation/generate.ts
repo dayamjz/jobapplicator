@@ -11,7 +11,7 @@ import { loadResumePromptConfig, loadCoverPromptConfig, fillTemplate } from "./p
 import type { Job } from "../types.js";
 import type { RunConfig } from "../types.js";
 import type { ResumeStructure } from "./docx.js";
-import { slugify } from "../utils/slugify.js";
+import { getJobPathFromJob } from "../utils/job-path.js";
 
 export interface GeneratedJobArtifacts {
   jobDir: string;
@@ -51,9 +51,7 @@ export async function generateForJob(
   cachedStructure?: ResumeStructure,
   prebuilt?: PrebuiltPrompts
 ): Promise<GeneratedJobArtifacts> {
-  const roleSlug = slugify(job.role);
-  const jobId = job.jobId;
-  const jobDir = join(process.cwd(), "jobs", roleSlug, jobId);
+  const jobDir = getJobPathFromJob(job);
   if (!existsSync(jobDir)) mkdirSync(jobDir, { recursive: true });
 
   const resumePath_ = join(jobDir, "resume.md");
@@ -115,8 +113,9 @@ export async function generateForJob(
     searchId: job.searchId,
     jobId: job.jobId,
     idSource: job.idSource,
-    status: "pending_review" as const,
-    compensation: job.compensation,
+    status: "approved" as const,
+    compensation: job.compensation ?? "",
+    pay: job.compensation ?? "",
   };
   writeFileSync(join(jobDir, "meta.json"), JSON.stringify(meta, null, 2));
 
