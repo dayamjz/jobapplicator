@@ -4,6 +4,7 @@
 import "dotenv/config";
 import { runAllSites } from "../ralph/loop.js";
 
+
 export async function runSearch(): Promise<void> {
   await runAllSites();
 }

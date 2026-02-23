@@ -1,10 +1,19 @@
 /**
- * Apply loop: timed run, find approved jobs on default branch, submit via Playwright, update job memory.
- * Uses profile + site templates; discovery on missing answer (commit directly).
- * Human-like delays; 30 applications per site per 4h.
+ * Apply loop: find approved jobs, submit via Playwright using site-specific and ATS-specific handlers.
+ * Supports LinkedIn Easy Apply + external ATS, Indeed native + external ATS, and direct ATS links.
+ * Uses profile.yaml for form data, converts resume.md to DOCX, and supports dry-run mode.
+ *
+ * Status transitions written to meta.json:
+ *   pending_review -> approved  (auto on main, merged PR = approved)
+ *   approved -> applied         (successful submission, dryRun=false)
+ *   approved -> needs_manual    (login wall, CAPTCHA, or form filler failed)
+ *   approved -> approved        (dryRun=true, status unchanged)
+ *   Any failure logs error details into meta.json.lastError
  */
-import { readdirSync, readFileSync, existsSync } from "fs";
+import { readdirSync, readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
+import { chromium } from "playwright";
+import type { Browser, BrowserContext } from "playwright";
 import { loadConfig } from "../config/index.js";
 import {
   loadAppliedJobs,
@@ -12,14 +21,15 @@ import {
   addAppliedJob,
   WINDOW_MS,
 } from "../state/memory.js";
-import { delayPageLoad, delayFormField, delayBetweenApplications } from "../utils/delay.js";
+import { delayPageLoad, delayBetweenApplications } from "../utils/delay.js";
+import { loadProfile, loadQuestionTemplates } from "../utils/profile.js";
+import { getResumeForUpload } from "../utils/resume-convert.js";
+import { getBrowserProfileDir } from "../utils/auth.js";
+import { applyLinkedIn } from "../sites/linkedin/apply.js";
+import { applyIndeed } from "../sites/indeed/apply.js";
 import type { Site, AppliedJobEntry } from "../types.js";
 
 const JOBS_DIR = "jobs";
-
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
-}
 
 export interface JobFolder {
   site: Site;
@@ -29,6 +39,13 @@ export interface JobFolder {
   url: string;
   path: string;
   status: string;
+}
+
+function updateMeta(metaPath: string, updates: Record<string, unknown>): void {
+  if (!existsSync(metaPath)) return;
+  const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
+  Object.assign(meta, updates);
+  writeFileSync(metaPath, JSON.stringify(meta, null, 2));
 }
 
 export function findApprovedJobs(): JobFolder[] {
@@ -45,7 +62,14 @@ export function findApprovedJobs(): JobFolder[] {
       const metaPath = join(jobsRoot, roleDir.name, jd.name, "meta.json");
       if (!existsSync(metaPath)) continue;
       const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
-      if (meta.status === "applied") continue;
+      if (meta.status === "applied" || meta.status === "needs_manual") continue;
+
+      if (meta.status === "pending_review") {
+        meta.status = "approved";
+        writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+        console.log(`  Auto-approved (merged PR): ${meta.title} at ${meta.company}`);
+      }
+
       if (meta.status !== "approved") continue;
       if (applied.some((e) => e.site === meta.site && e.jobId === meta.jobId)) continue;
 
@@ -63,47 +87,115 @@ export function findApprovedJobs(): JobFolder[] {
   return list;
 }
 
-export async function runApplyForJob(folder: JobFolder): Promise<boolean> {
+export async function runApplyForJob(
+  folder: JobFolder,
+  context: BrowserContext,
+  browser: Browser,
+): Promise<boolean> {
   const config = loadConfig();
-  await delayPageLoad(config.delays);
+  const profile = loadProfile();
+  const templates = loadQuestionTemplates(folder.site);
+  const dryRun = config.dryRun ?? false;
+  const metaPath = join(folder.path, "meta.json");
+  const now = new Date().toISOString();
 
-  const resumePath = join(folder.path, "resume.md");
+  const resumePath = await getResumeForUpload(folder.path, config.resumePath).catch((err) => {
+    const msg = (err as Error).message;
+    console.warn(`  Resume error: ${msg}`);
+    updateMeta(metaPath, {
+      status: "needs_manual",
+      lastError: { message: `Resume error: ${msg}`, at: now },
+    });
+    return "";
+  });
+  if (!resumePath) return false;
+
   const coverPath = join(folder.path, "cover.md");
-  if (!existsSync(resumePath) || !existsSync(coverPath)) {
-    console.warn("Missing resume.md or cover.md in", folder.path);
-    return false;
-  }
+  const coverText = existsSync(coverPath) ? readFileSync(coverPath, "utf-8") : "";
 
-  const { chromium } = await import("playwright");
-  const browser = await chromium.launch({ headless: true });
+  console.log(`\nApplying: ${folder.role} at ${folder.company} [${folder.site}]`);
+  console.log(`  URL: ${folder.url}`);
+  console.log(`  Dry run: ${dryRun}`);
+
+  const page = await context.newPage();
+  let success = false;
+
   try {
-    const page = await browser.newPage();
-    await page.goto(folder.url, { waitUntil: "domcontentloaded" });
     await delayPageLoad(config.delays);
 
-    // Placeholder: actual apply flow is site-specific (click Apply, fill form, upload resume, paste cover).
-    // Here we only mark as applied and update memory; real implementation would use sites/linkedin/apply.ts etc.
-    const entry: AppliedJobEntry = {
-      site: folder.site,
-      jobId: folder.jobId,
-      role: folder.role,
-      company: folder.company,
-      url: folder.url,
-      appliedAt: new Date().toISOString(),
-    };
-    const applied = loadAppliedJobs();
-    addAppliedJob(applied, entry);
+    if (folder.site === "linkedin") {
+      success = await applyLinkedIn({
+        page,
+        context,
+        job: folder,
+        profile,
+        templates,
+        resumePath,
+        coverText,
+        delays: config.delays,
+        dryRun,
+      });
+    } else if (folder.site === "indeed") {
+      success = await applyIndeed({
+        page,
+        context,
+        job: folder,
+        profile,
+        templates,
+        resumePath,
+        coverText,
+        delays: config.delays,
+        dryRun,
+      });
+    } else {
+      const msg = `Unsupported site for apply: ${folder.site}`;
+      console.warn(`  ${msg}`);
+      updateMeta(metaPath, {
+        status: "needs_manual",
+        lastError: { message: msg, at: now },
+      });
+      return false;
+    }
 
-    const metaPath = join(folder.path, "meta.json");
-    const meta = JSON.parse(readFileSync(metaPath, "utf-8"));
-    meta.status = "applied";
-    meta.appliedAt = entry.appliedAt;
-    const { writeFileSync } = await import("fs");
-    writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+    if (success && !dryRun) {
+      const entry: AppliedJobEntry = {
+        site: folder.site,
+        jobId: folder.jobId,
+        role: folder.role,
+        company: folder.company,
+        url: folder.url,
+        appliedAt: now,
+      };
+      const applied = loadAppliedJobs();
+      addAppliedJob(applied, entry);
 
-    return true;
+      updateMeta(metaPath, {
+        status: "applied",
+        appliedAt: now,
+        lastError: null,
+      });
+      console.log(`  Status: applied`);
+    } else if (success && dryRun) {
+      console.log(`  Status: approved (dry run, no change)`);
+    } else {
+      updateMeta(metaPath, {
+        status: "needs_manual",
+        lastError: { message: "Apply flow did not reach submission", at: now },
+      });
+      console.log(`  Status: needs_manual`);
+    }
+
+    return success;
+  } catch (err) {
+    const msg = (err as Error).message;
+    console.error(`  Apply error: ${msg}`);
+    updateMeta(metaPath, {
+      status: "needs_manual",
+      lastError: { message: msg, stack: (err as Error).stack?.split("\n").slice(0, 5).join("\n"), at: now },
+    });
+    return false;
   } finally {
-    await browser.close();
+    await page.close().catch(() => {});
   }
 }
 
@@ -111,6 +203,14 @@ export async function runApplyLoop(): Promise<void> {
   const config = loadConfig();
   const applied = loadAppliedJobs();
   const jobs = findApprovedJobs();
+
+  if (jobs.length === 0) {
+    console.log("No approved jobs to apply for.");
+    return;
+  }
+
+  console.log(`Found ${jobs.length} approved jobs to apply for.`);
+  console.log(`Dry run mode: ${config.dryRun ?? false}`);
 
   const bySite = new Map<Site, JobFolder[]>();
   for (const j of jobs) {
@@ -120,16 +220,33 @@ export async function runApplyLoop(): Promise<void> {
     bySite.set(j.site, list);
   }
 
-  let run = 0;
-  for (const [site, list] of bySite) {
-    const max = config.maxApplicationsPerSitePerWindow;
-    const inWindow = applied.filter((e) => e.site === site && new Date(e.appliedAt).getTime() >= Date.now() - WINDOW_MS).length;
-    const toRun = Math.min(list.length, max - inWindow);
-    for (let i = 0; i < toRun; i++) {
-      const ok = await runApplyForJob(list[i]);
-      if (ok) run++;
-      await delayBetweenApplications(config.delays);
+  const profileDir = getBrowserProfileDir();
+  const context = profileDir
+    ? await chromium.launchPersistentContext(profileDir, {
+        headless: false,
+        args: ["--disable-blink-features=AutomationControlled"],
+      })
+    : await chromium.launchPersistentContext("", { headless: false });
+
+  const browser = context.browser()!;
+
+  try {
+    let run = 0;
+    for (const [site, list] of bySite) {
+      const max = config.maxApplicationsPerSitePerWindow;
+      const inWindow = applied.filter(
+        (e) => e.site === site && new Date(e.appliedAt).getTime() >= Date.now() - WINDOW_MS
+      ).length;
+      const toRun = Math.min(list.length, max - inWindow);
+      console.log(`\n--- ${site}: ${toRun} jobs to apply ---`);
+      for (let i = 0; i < toRun; i++) {
+        const ok = await runApplyForJob(list[i], context, browser);
+        if (ok) run++;
+        await delayBetweenApplications(config.delays);
+      }
     }
+    console.log(`\nApply loop finished. Applied: ${run} jobs.`);
+  } finally {
+    await context.close();
   }
-  console.log(`Apply loop finished. Applied: ${run} jobs.`);
 }

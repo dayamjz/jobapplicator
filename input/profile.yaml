@@ -1,13 +1,42 @@
 # Profile answers for site apply forms.
-# Map question id (from input/templates/*.yaml) to your answer.
-# Add new entries when discovery asks for a question you haven't answered.
-# Format the tool understands: question_id -> string value.
+# Map question id to your answer. Used by the unified field matcher
+# (input/field-patterns.yaml) and contact/diversity fill logic.
 
-years_experience: "5"
+# Basic application questions
+years_experience: "20"
 work_authorization: "yes"
 salary_expectation: ""
 when_can_you_start: "2 weeks"
 willing_to_relocate: "no"
 desired_salary: ""
-linkedin_url: ""
+linkedin_url: "https://www.linkedin.com/in/brissa-solis/"
 portfolio_url: ""
+
+# Contact info (used by external ATS forms)
+first_name: "Brissa"
+last_name: "Solis"
+email: "labrix007@gmail.com"
+phone: "915-920-6278"
+city: "Hayward"
+state: "California"
+
+# Diversity / EEO fields
+gender: "Female"
+ethnicity: "Hispanic or Latino"
+veteran_status: "I am not a protected veteran"
+disability_status: "No, I do not have a disability"
+
+# LinkedIn-specific
+linkedin_headline: "Sr. Director of PMO | 20+ years in program management"
+linkedin_summary: ""
+
+# Common custom questions (all platforms)
+require_sponsorship: "no"
+over_18: "yes"
+previously_employed: "no"
+how_did_you_hear: "LinkedIn"
+years_management: "20"
+willing_to_commute: "yes"
+has_clearance: "no"
+desired_compensation: "$210K"
+notice_period: "2 weeks"

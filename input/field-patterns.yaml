@@ -1,0 +1,79 @@
+# Unified field pattern matching config.
+# Each entry maps a label regex to a profile key or static value.
+# Checked in order; first match wins.
+#
+#   pattern:        regex or substring matched against the field label (case-insensitive)
+#   key:            profile.yaml key to look up the answer
+#   fallback:       special token when key is empty (e.g. "coverLetter")
+#   onlyIfRequired: if true, only fill when the field is marked required (* or required attr)
+#
+# Dynamic keys: capture groups in `pattern` can be interpolated into `key`.
+# Example: pattern "years.*(python)" with key "years_$1" resolves to "years_python".
+
+# --- LinkedIn-specific ---
+
+- pattern: "headline"
+  key: linkedin_headline
+
+- pattern: "summary"
+  key: linkedin_summary
+  fallback: coverLetter
+
+# --- Sponsorship / work authorization ---
+
+- pattern: "visa|sponsorship"
+  key: require_sponsorship
+
+- pattern: "authorized.*work|legally.*authorized|eligib|work.*authorization"
+  key: work_authorization
+
+# --- Years of experience (dynamic) ---
+
+- pattern: "years.*(python|java|javascript|react|node|typescript|ruby|go|sql|c\\+\\+|management)"
+  key: "years_$1"
+
+- pattern: "years.*experience|total.*experience"
+  key: years_experience
+
+# --- Compensation ---
+
+- pattern: "salary|compensation|pay|desired.*salary"
+  key: desired_compensation
+  onlyIfRequired: true
+
+# --- Personal / logistics ---
+
+- pattern: "relocat"
+  key: willing_to_relocate
+
+- pattern: "over 18|18 years|age.*18|at least 18"
+  key: over_18
+
+- pattern: "how did you hear|how did you find|where did you hear|referral source"
+  key: how_did_you_hear
+
+- pattern: "notice period|when.*start|earliest.*start|start date"
+  key: notice_period
+
+- pattern: "previously.*employed|worked.*before|former employee"
+  key: previously_employed
+
+- pattern: "clearance|security clearance"
+  key: has_clearance
+
+- pattern: "commute|on.?site|office|in.?person"
+  key: willing_to_commute
+
+# --- Contact (fallback for non-structured pages) ---
+
+- pattern: "location city|city"
+  key: city
+
+- pattern: "location state|state|province|region"
+  key: state
+
+- pattern: "linkedin.*url|linkedin.*profile"
+  key: linkedin_url
+
+- pattern: "portfolio|personal.*website|github"
+  key: portfolio_url

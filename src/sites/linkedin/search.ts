@@ -9,7 +9,7 @@ import type { SearchConfig } from "../../types.js";
 import type { SiteSearchResult } from "../types.js";
 import { delaySearchResultClick } from "../../utils/delay.js";
 import type { DelayConfig } from "../../types.js";
-import { getAuthStatePath } from "../../utils/auth.js";
+import { getBrowserProfileDir } from "../../utils/auth.js";
 
 const BASE = "https://www.linkedin.com/jobs/search/";
 
@@ -24,16 +24,11 @@ export function buildSearchUrl(search: SearchConfig, location: string): string {
   return `${BASE}?${params.toString()}`;
 }
 
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
-}
-
-async function fetchJobDescription(context: Awaited<ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newContext"]>>, url: string): Promise<string> {
+async function fetchJobDescription(context: { newPage: () => Promise<any> }, url: string): Promise<string> {
   const page = await context.newPage();
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
-    await page.waitForTimeout(2000);
-    const descEl = await page.$(".show-more-less-html__markup") ?? await page.$(".description__text");
+    const descEl = await page.waitForSelector(".show-more-less-html__markup, .description__text", { timeout: 5000 }).catch(() => null);
     if (descEl) {
       return ((await descEl.textContent()) ?? "").trim();
     }
@@ -50,17 +45,15 @@ export async function searchLinkedIn(
   searchId: string,
   delayConfig: DelayConfig,
   maxJobs: number,
-  location: string
+  location: string,
+  sharedContext?: import("playwright").BrowserContext
 ): Promise<SiteSearchResult> {
-  const authState = getAuthStatePath("linkedin");
-  const browser = await chromium.launch({ headless: true });
-  const context = authState
-    ? await browser.newContext({ storageState: authState })
-    : await browser.newContext();
+  const ownContext = !sharedContext;
+  const context = sharedContext ?? await launchLinkedInContext();
   const jobs: Job[] = [];
   try {
-    const page = await context.newPage();
-    console.log(`  [linkedin] Auth: ${authState ? "using saved session" : "anonymous (public search)"}`);
+    const page = context.pages()[0] || await context.newPage();
+    console.log(`  [linkedin] Auth: ${getBrowserProfileDir() ? "using saved browser profile" : "anonymous (public search)"}`);
     console.log(`  [linkedin] Searching: ${buildSearchUrl(search, location)}`);
     await page.goto(buildSearchUrl(search, location), { waitUntil: "domcontentloaded" });
     await delaySearchResultClick(delayConfig);
@@ -107,6 +100,13 @@ export async function searchLinkedIn(
 
     return { jobs, hasMore: cards.length >= maxJobs };
   } finally {
-    await browser.close();
+    if (ownContext) await context.close();
   }
+}
+
+export async function launchLinkedInContext(): Promise<import("playwright").BrowserContext> {
+  const profileDir = getBrowserProfileDir();
+  return profileDir
+    ? await chromium.launchPersistentContext(profileDir, { headless: true, args: ["--disable-blink-features=AutomationControlled"] })
+    : await chromium.launchPersistentContext("", { headless: true });
 }

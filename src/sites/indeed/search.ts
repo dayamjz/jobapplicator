@@ -19,9 +19,11 @@ export async function searchIndeed(
   searchId: string,
   delayConfig: DelayConfig,
   maxJobs: number,
-  location: string
+  location: string,
+  sharedBrowser?: import("playwright").Browser
 ): Promise<SiteSearchResult> {
-  const browser = await chromium.launch({ headless: true });
+  const ownBrowser = !sharedBrowser;
+  const browser = sharedBrowser ?? await chromium.launch({ headless: true });
   const jobs: Job[] = [];
   try {
     const page = await browser.newPage();
@@ -61,6 +63,6 @@ export async function searchIndeed(
 
     return { jobs, hasMore: cards.length >= maxJobs };
   } finally {
-    await browser.close();
+    if (ownBrowser) await browser.close();
   }
 }

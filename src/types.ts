@@ -11,6 +11,7 @@ export interface RunConfig {
   maxApplicationsPerSitePerWindow: number;
   delays: DelayConfig;
   applySchedule: string;
+  dryRun: boolean;
   searches: SearchConfig[];
 }
 
@@ -53,7 +54,7 @@ export interface JobMeta {
   searchId: string;
   jobId: string;
   idSource: "from_posting" | "site_prefixed";
-  status: "pending_review" | "approved" | "applied";
+  status: "pending_review" | "approved" | "applied" | "needs_manual";
   compensation?: string;
   appliedAt?: string;
 }

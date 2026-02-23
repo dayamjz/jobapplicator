@@ -6,10 +6,7 @@ import { existsSync } from "fs";
 import { join } from "path";
 import { execSync } from "child_process";
 import type { Job } from "../types.js";
-
-function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);
-}
+import { slugify } from "../utils/slugify.js";
 
 function run(cmd: string): string {
   return execSync(cmd, { cwd: process.cwd(), encoding: "utf-8" });
@@ -42,12 +39,24 @@ export async function openPrForJob(job: Job): Promise<void> {
       console.warn("  Push failed:", (err as Error).message);
     }
 
-    const repo = process.env.GITHUB_REPO_OWNER && process.env.GITHUB_REPO_NAME
-      ? `${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}`
-      : null;
-    if (repo) {
-      console.log(`  PR: https://github.com/${repo}/compare/${branchName}?expand=1`);
-      console.log(`  Title: Application: ${job.title} at ${job.company}`);
+    const prTitle = `Application: ${safeTitle(job.title)} at ${safeTitle(job.company)}`;
+    const prBody = `**Role:** ${job.title}\n**Company:** ${job.company}\n**URL:** ${job.url}\n**Site:** ${job.site}\n**Job ID:** ${job.jobId}`;
+    try {
+      const result = run(`gh pr create --title "${prTitle}" --body "${prBody.replace(/"/g, '\\"')}" --base main --head "${branchName}" 2>&1`);
+      console.log(`  PR created: ${result.trim()}`);
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg.includes("already exists")) {
+        console.log(`  PR already exists for ${branchName}`);
+      } else {
+        console.warn("  gh pr create failed (push-only mode):", msg.slice(0, 200));
+        const repo = process.env.GITHUB_REPO_OWNER && process.env.GITHUB_REPO_NAME
+          ? `${process.env.GITHUB_REPO_OWNER}/${process.env.GITHUB_REPO_NAME}`
+          : null;
+        if (repo) {
+          console.log(`  Manual PR: https://github.com/${repo}/compare/${branchName}?expand=1`);
+        }
+      }
     }
   } finally {
     try {

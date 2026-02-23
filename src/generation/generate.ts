@@ -1,8 +1,9 @@
 /**
  * Generate tailored resume (md, docx) and cover letter (md) for a job.
- * Uses two prompt configs and docx-derived structure.
+ * Resume content is placed in the system prompt so LLM providers can cache it
+ * across multiple job calls (identical system prompt = cached tokens).
  */
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { generateWithFallback } from "../llm/router.js";
 import { extractResumeStructure, structureToPrompt } from "./docx.js";
@@ -10,6 +11,7 @@ import { loadResumePromptConfig, loadCoverPromptConfig, fillTemplate } from "./p
 import type { Job } from "../types.js";
 import type { RunConfig } from "../types.js";
 import type { ResumeStructure } from "./docx.js";
+import { slugify } from "../utils/slugify.js";
 
 export interface GeneratedJobArtifacts {
   jobDir: string;
@@ -18,39 +20,76 @@ export interface GeneratedJobArtifacts {
   coverMd: string;
 }
 
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 50);
+export interface PrebuiltPrompts {
+  resumeSystem: string;
+  coverSystem: string;
+}
+
+export function buildPrebuiltPrompts(structure: ResumeStructure): PrebuiltPrompts {
+  const structureStr = structureToPrompt(structure);
+
+  const resumeVars = {
+    resumeStructure: structureStr,
+    resumeContent: structure.rawText,
+  };
+  const resumePromptConfig = loadResumePromptConfig();
+  const resumeSystem = fillTemplate(resumePromptConfig.system, resumeVars);
+
+  const coverVars = {
+    resumeSummary: structure.rawText.slice(0, 800),
+  };
+  const coverPromptConfig = loadCoverPromptConfig();
+  const coverSystem = fillTemplate(coverPromptConfig.system, coverVars);
+
+  return { resumeSystem, coverSystem };
 }
 
 export async function generateForJob(
   job: Job,
   resumePath: string,
-  config: RunConfig
+  config: RunConfig,
+  cachedStructure?: ResumeStructure,
+  prebuilt?: PrebuiltPrompts
 ): Promise<GeneratedJobArtifacts> {
   const roleSlug = slugify(job.role);
   const jobId = job.jobId;
   const jobDir = join(process.cwd(), "jobs", roleSlug, jobId);
   if (!existsSync(jobDir)) mkdirSync(jobDir, { recursive: true });
 
-  const structure = await extractResumeStructure(resumePath);
-  const structureStr = structureToPrompt(structure);
+  const resumePath_ = join(jobDir, "resume.md");
+  const coverPath_ = join(jobDir, "cover.md");
+  if (existsSync(resumePath_) && existsSync(coverPath_)) {
+    console.log(`  Skipping LLM generation (artifacts exist): ${jobDir}`);
+    return {
+      jobDir,
+      resumeMd: readFileSync(resumePath_, "utf-8"),
+      coverMd: readFileSync(coverPath_, "utf-8"),
+    };
+  }
+
+  let resumeSystem: string;
+  let coverSystem: string;
+
+  if (prebuilt) {
+    resumeSystem = prebuilt.resumeSystem;
+    coverSystem = prebuilt.coverSystem;
+  } else {
+    const structure = cachedStructure ?? await extractResumeStructure(resumePath);
+    const built = buildPrebuiltPrompts(structure);
+    resumeSystem = built.resumeSystem;
+    coverSystem = built.coverSystem;
+  }
 
   const resumePromptConfig = loadResumePromptConfig();
   const resumeUser = fillTemplate(resumePromptConfig.userTemplate, {
     jobTitle: job.title,
     company: job.company,
     jobDescription: job.description ?? "",
-    resumeStructure: structureStr,
-    resumeContent: structure.rawText.slice(0, 4000),
   });
   const resumeMd = await generateWithFallback({
-    system: resumePromptConfig.system,
+    system: resumeSystem,
     prompt: resumeUser,
-    maxTokens: 2048,
+    maxTokens: 4096,
   });
 
   const coverPromptConfig = loadCoverPromptConfig();
@@ -58,16 +97,15 @@ export async function generateForJob(
     jobTitle: job.title,
     company: job.company,
     jobDescription: job.description ?? "",
-    resumeSummary: structure.rawText.slice(0, 800),
   });
   const coverMd = await generateWithFallback({
-    system: coverPromptConfig.system,
+    system: coverSystem,
     prompt: coverUser,
     maxTokens: 1024,
   });
 
-  writeFileSync(join(jobDir, "resume.md"), resumeMd);
-  writeFileSync(join(jobDir, "cover.md"), coverMd);
+  writeFileSync(resumePath_, resumeMd);
+  writeFileSync(coverPath_, coverMd);
 
   const meta = {
     company: job.company,

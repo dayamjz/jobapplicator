@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { findApprovedJobs, type JobFolder } from "../src/apply/runner.js";
-import { mkdirSync, writeFileSync } from "fs";
+import { mkdirSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
@@ -131,7 +131,7 @@ describe("findApprovedJobs", () => {
     expect(folder.status).toBe("approved");
   });
 
-  it("only includes jobs with status approved (PR merged); excludes pending_review from apply list", () => {
+  it("auto-promotes pending_review to approved (merged PR = approved)", () => {
     const jobsRoot = join(tmpDir, "jobs");
     mkdirSync(join(jobsRoot, "r", "pending"), { recursive: true });
     mkdirSync(join(jobsRoot, "r", "approved"), { recursive: true });
@@ -155,6 +155,8 @@ describe("findApprovedJobs", () => {
     const list = findApprovedJobs();
     const ids = list.map((j) => j.jobId);
     expect(ids).toContain("approved");
-    expect(ids).not.toContain("pending");
+    expect(ids).toContain("pending");
+    const meta = JSON.parse(readFileSync(join(jobsRoot, "r", "pending", "meta.json"), "utf-8"));
+    expect(meta.status).toBe("approved");
   });
 });

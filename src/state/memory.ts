@@ -1,8 +1,9 @@
 /**
  * Job memory: applied list and 4-hour window checks.
- * Stored in input/applied-jobs.json so it is versioned.
+ * Cached in-memory after first load; flushed to disk only on writes.
+ * Cache auto-invalidates when cwd changes (for tests).
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "fs";
 import { join } from "path";
 import type { Site, AppliedJobEntry } from "../types.js";
 
@@ -24,37 +25,88 @@ export interface AppliedJobsData {
   openedPrs?: OpenedPrEntry[];
 }
 
-export function loadAppliedJobs(): AppliedJobEntry[] {
-  const path = getAppliedJobsPath();
-  if (!existsSync(path)) return [];
-  const data = JSON.parse(readFileSync(path, "utf-8")) as AppliedJobsData;
-  return data.applied ?? [];
+let _cache: AppliedJobsData | null = null;
+let _cachePath: string | null = null;
+let _cacheMtimeMs: number | null = null;
+let _appliedSet: Set<string> | null = null;
+let _openedPrSet: Set<string> | null = null;
+
+function makeKey(site: string, jobId: string): string {
+  return `${site}:${jobId}`;
 }
 
-export function loadOpenedPrs(): OpenedPrEntry[] {
+function ensureLoaded(): AppliedJobsData {
   const path = getAppliedJobsPath();
-  if (!existsSync(path)) return [];
-  const data = JSON.parse(readFileSync(path, "utf-8")) as AppliedJobsData;
-  return data.openedPrs ?? [];
+  if (_cache && _cachePath === path && existsSync(path)) {
+    const currentMtime = statSync(path).mtimeMs;
+    if (_cacheMtimeMs === currentMtime) return _cache;
+  }
+  if (!existsSync(path)) {
+    _cache = { applied: [], openedPrs: [] };
+    _cacheMtimeMs = null;
+  } else {
+    _cache = JSON.parse(readFileSync(path, "utf-8")) as AppliedJobsData;
+    _cache.openedPrs ??= [];
+    _cacheMtimeMs = statSync(path).mtimeMs;
+  }
+  _cachePath = path;
+  _appliedSet = new Set(_cache.applied.map((e) => makeKey(e.site, e.jobId)));
+  _openedPrSet = new Set(_cache.openedPrs!.map((e) => makeKey(e.site, e.jobId)));
+  return _cache;
 }
 
-export function saveAppliedJobs(entries: AppliedJobEntry[], openedPrs?: OpenedPrEntry[]): void {
+function flushToDisk(): void {
+  const data = ensureLoaded();
   const path = getAppliedJobsPath();
   const dir = join(path, "..");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const data: AppliedJobsData = { applied: entries, openedPrs: openedPrs ?? loadOpenedPrs() };
   writeFileSync(path, JSON.stringify(data, null, 2));
+  _cacheMtimeMs = statSync(path).mtimeMs;
+}
+
+export function resetCache(): void {
+  _cache = null;
+  _cachePath = null;
+  _cacheMtimeMs = null;
+  _appliedSet = null;
+  _openedPrSet = null;
+}
+
+export function loadAppliedJobs(): AppliedJobEntry[] {
+  return ensureLoaded().applied;
+}
+
+export function loadOpenedPrs(): OpenedPrEntry[] {
+  return ensureLoaded().openedPrs!;
+}
+
+export function saveAppliedJobs(entries: AppliedJobEntry[], openedPrs?: OpenedPrEntry[]): void {
+  const data = ensureLoaded();
+  data.applied = entries;
+  if (openedPrs !== undefined) data.openedPrs = openedPrs;
+  _appliedSet = new Set(entries.map((e) => makeKey(e.site, e.jobId)));
+  if (openedPrs) _openedPrSet = new Set(openedPrs.map((e) => makeKey(e.site, e.jobId)));
+  flushToDisk();
 }
 
 export function addOpenedPr(site: Site, jobId: string): void {
-  const applied = loadAppliedJobs();
-  const prs = loadOpenedPrs();
-  prs.push({ site, jobId, openedAt: new Date().toISOString() });
-  saveAppliedJobs(applied, prs);
+  const data = ensureLoaded();
+  data.openedPrs!.push({ site, jobId, openedAt: new Date().toISOString() });
+  _openedPrSet!.add(makeKey(site, jobId));
+  flushToDisk();
 }
 
-export function isInAppliedList(site: Site, jobId: string, entries: AppliedJobEntry[]): boolean {
-  return entries.some((e) => e.site === site && e.jobId === jobId);
+export function isInAppliedList(site: Site, jobId: string, entries?: AppliedJobEntry[]): boolean {
+  if (entries) {
+    return entries.some((e) => e.site === site && e.jobId === jobId);
+  }
+  ensureLoaded();
+  return _appliedSet!.has(makeKey(site, jobId));
+}
+
+export function isInOpenedPrs(site: Site, jobId: string): boolean {
+  ensureLoaded();
+  return _openedPrSet!.has(makeKey(site, jobId));
 }
 
 export function countInWindow(entries: AppliedJobEntry[], site: Site, windowMs: number): number {
@@ -67,9 +119,11 @@ export function canApplyMore(entries: AppliedJobEntry[], site: Site, maxPerSite:
 }
 
 export function addAppliedJob(entries: AppliedJobEntry[], entry: AppliedJobEntry): AppliedJobEntry[] {
-  const next = [...entries, entry];
-  saveAppliedJobs(next, loadOpenedPrs());
-  return next;
+  const data = ensureLoaded();
+  data.applied.push(entry);
+  _appliedSet!.add(makeKey(entry.site, entry.jobId));
+  flushToDisk();
+  return data.applied;
 }
 
 export function canOpenMorePrs(site: Site, maxPerSite: number, windowMs: number = WINDOW_MS): boolean {
@@ -77,4 +131,10 @@ export function canOpenMorePrs(site: Site, maxPerSite: number, windowMs: number 
   const cutoff = Date.now() - windowMs;
   const count = prs.filter((e) => e.site === site && new Date(e.openedAt).getTime() >= cutoff).length;
   return count < maxPerSite;
+}
+
+export function countOpenedPrsInWindow(site: Site, windowMs: number = WINDOW_MS): number {
+  const prs = loadOpenedPrs();
+  const cutoff = Date.now() - windowMs;
+  return prs.filter((e) => e.site === site && new Date(e.openedAt).getTime() >= cutoff).length;
 }

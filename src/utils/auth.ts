@@ -1,12 +1,12 @@
 /**
- * Load saved Playwright storage state (cookies, localStorage) for a site.
- * Returns the path to the storage state file if it exists, or undefined.
+ * Persistent browser profile for authenticated Playwright sessions.
+ * Uses a shared Chrome profile directory so login state persists across runs.
  */
 import { existsSync } from "fs";
 import { join } from "path";
-import type { Site } from "../types.js";
 
-export function getAuthStatePath(site: Site): string | undefined {
-  const p = join(process.cwd(), "input", "auth", `${site}.json`);
-  return existsSync(p) ? p : undefined;
+const PROFILE_DIR = join(process.cwd(), "input", "auth", "browser-profile");
+
+export function getBrowserProfileDir(): string | undefined {
+  return existsSync(PROFILE_DIR) ? PROFILE_DIR : undefined;
 }

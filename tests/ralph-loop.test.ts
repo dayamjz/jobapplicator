@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runSiteLoop } from "../src/ralph/loop.js";
+import { resetCache } from "../src/state/memory.js";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -41,6 +42,7 @@ vi.mock("../src/state/github.js", () => ({
 
 describe("runSiteLoop", () => {
   beforeEach(() => {
+    resetCache();
     tmpDir = join(tmpdir(), `applicator-ralph-${Date.now()}`);
     mkdirSync(join(tmpDir, "input"), { recursive: true });
     writeFileSync(
@@ -50,7 +52,10 @@ describe("runSiteLoop", () => {
     process.chdir(tmpDir);
   });
 
-  afterEach(() => process.chdir(origCwd));
+  afterEach(() => {
+    resetCache();
+    process.chdir(origCwd);
+  });
 
   it("returns processed 0 and stoppedReason rate_limit_4h when opened PRs in window already at max", async () => {
     const recent = new Date(Date.now() - 1000).toISOString();

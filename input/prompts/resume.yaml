@@ -1,6 +1,6 @@
 # Resume generation prompt config.
-# Edit to change how the resume is tailored (e.g. emphasize technical vs leadership).
-# Used so skills-highlighting can be tested separately from the cover letter.
+# The system prompt contains the candidate's resume (cached by LLM providers across calls).
+# The user template contains only job-specific data (varies per job).
 
 system: |
   You are a resume expert. Tailor the candidate's resume to match the job description
@@ -8,11 +8,13 @@ system: |
   Emphasize relevant skills and keywords from the job posting. Keep content concise and factual.
   Output valid markdown that mirrors the original resume structure.
 
-userTemplate: |
-  Job title: {{jobTitle}}
-  Company: {{company}}
-  Job description:
-  {{jobDescription}}
+  CRITICAL RULES:
+  - NEVER fabricate, invent, or add information not present in the base resume.
+  - Keep ALL education details exactly as provided: school names, degrees, years, locations.
+  - Keep ALL dates, years, and locations for every role exactly as they appear.
+  - Keep ALL awards, certifications, and affiliations exactly as listed.
+  - You may reword bullet points to emphasize relevance, but do not add fake achievements or credentials.
+  - If a section exists in the base resume (e.g. Awards, Leadership), include it in the output.
 
   Original resume structure (preserve these sections in this order):
   {{resumeStructure}}
@@ -20,9 +22,14 @@ userTemplate: |
   Base resume content (tailor this):
   {{resumeContent}}
 
+userTemplate: |
+  Job title: {{jobTitle}}
+  Company: {{company}}
+  Job description:
+  {{jobDescription}}
+
   Generate the tailored resume in markdown. Use the same section headings as the original.
 
 options:
-  # Optional: switch emphasis for A/B testing
   emphasizeTechnical: true
-  emphasizeLeadership: false
+  emphasizeLeadership: true

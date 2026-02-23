@@ -22,13 +22,15 @@ export async function searchGreenhouse(
   searchId: string,
   delayConfig: DelayConfig,
   maxJobs: number,
-  _location: string
+  _location: string,
+  sharedBrowser?: import("playwright").Browser
 ): Promise<SiteSearchResult> {
-  const browser = await chromium.launch({ headless: true });
+  const ownBrowser = !sharedBrowser;
+  const browser = sharedBrowser ?? await chromium.launch({ headless: true });
   const jobs: Job[] = [];
   try {
     const page = await browser.newPage();
-    const url = buildSearchUrl(search);
+    const url = buildSearchUrl(search, _location);
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await delaySearchResultClick(delayConfig);
 
@@ -63,6 +65,6 @@ export async function searchGreenhouse(
 
     return { jobs, hasMore: cards.length >= maxJobs };
   } finally {
-    await browser.close();
+    if (ownBrowser) await browser.close();
   }
 }

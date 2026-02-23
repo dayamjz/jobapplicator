@@ -3,8 +3,7 @@
  */
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { generateText, type CoreMessage, type LanguageModel } from "ai";
-import type { DelayConfig } from "../types.js";
+import { generateText, type LanguageModel } from "ai";
 
 const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const anthropic = createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -29,6 +28,25 @@ function isRateLimitError(err: unknown): boolean {
   );
 }
 
+function isTransientError(err: unknown): boolean {
+  if (isRateLimitError(err)) return false;
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    message.includes("500") ||
+    message.includes("502") ||
+    message.includes("503") ||
+    message.includes("timeout") ||
+    message.includes("ETIMEDOUT") ||
+    message.includes("ECONNRESET")
+  );
+}
+
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export interface GenerateOptions {
   system: string;
   prompt: string;
@@ -37,25 +55,37 @@ export interface GenerateOptions {
 
 export async function generateWithFallback(options: GenerateOptions): Promise<string> {
   const model = getDefaultModel();
-  try {
-    const { text } = await generateText({
-      model,
-      system: options.system,
-      prompt: options.prompt,
-      maxTokens: options.maxTokens ?? 4096,
-    });
-    return text;
-  } catch (err) {
-    if (isRateLimitError(err)) {
-      console.warn("Rate limited, retrying with Claude:", (err as Error).message);
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
       const { text } = await generateText({
-        model: getFallbackModel(),
+        model,
         system: options.system,
         prompt: options.prompt,
         maxTokens: options.maxTokens ?? 4096,
       });
       return text;
+    } catch (err) {
+      lastError = err;
+      if (isRateLimitError(err)) {
+        console.warn("Rate limited, retrying with Claude:", (err as Error).message);
+        const { text } = await generateText({
+          model: getFallbackModel(),
+          system: options.system,
+          prompt: options.prompt,
+          maxTokens: options.maxTokens ?? 4096,
+        });
+        return text;
+      }
+      if (isTransientError(err) && attempt < RETRY_DELAYS_MS.length) {
+        const delay = RETRY_DELAYS_MS[attempt];
+        console.warn(`Transient error (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length + 1}), retrying in ${delay}ms:`, (err as Error).message);
+        await sleep(delay);
+        continue;
+      }
+      throw err;
     }
-    throw err;
   }
+  throw lastError;
 }

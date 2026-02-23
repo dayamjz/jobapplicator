@@ -14,7 +14,7 @@ export const delayConfigSchema = z.object({
 export const searchConfigSchema = z.object({
   id: z.string().min(1),
   keywords: z.string(),
-  location: z.string(),
+  location: z.union([z.string(), z.array(z.string())]),
   urlParams: z
     .object({
       linkedin: z.record(z.string()).optional(),
@@ -36,6 +36,7 @@ export const runConfigSchema = z.object({
     searchResultClickMs: [1000, 2000],
   }),
   applySchedule: z.string().default("0 */4 * * *"),
+  dryRun: z.boolean().default(false),
   searches: z.array(searchConfigSchema).min(1),
 });
 

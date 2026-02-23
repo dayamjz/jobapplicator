@@ -1,7 +1,7 @@
 {
   "resumePath": "./input/Brissa_Solis_Aguilar_Resume_PMO.docx",
   "rateLimitWindowHours": 4,
-  "maxPrsPerSitePerWindow": 3,
+  "maxPrsPerSitePerWindow": 10,
   "maxApplicationsPerSitePerWindow": 30,
   "delays": {
     "pageLoadMs": [1000, 3000],
@@ -10,6 +10,7 @@
     "searchResultClickMs": [1000, 2000]
   },
   "applySchedule": "0 */4 * * *",
+  "dryRun": false,
   "searches": [
     {
       "id": "sr-tpm",

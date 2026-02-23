@@ -14,18 +14,43 @@ function loadYaml(name: string): Record<string, unknown> {
   return (parseYaml(raw) as Record<string, unknown>) ?? {};
 }
 
+let _resumePrompt: { system: string; userTemplate: string } | null = null;
+let _coverPrompt: { system: string; userTemplate: string } | null = null;
+let _cachedCwd: string | null = null;
+
+function checkCwd(): void {
+  const cwd = process.cwd();
+  if (_cachedCwd && _cachedCwd !== cwd) {
+    _resumePrompt = null;
+    _coverPrompt = null;
+  }
+  _cachedCwd = cwd;
+}
+
 export function loadResumePromptConfig(): { system: string; userTemplate: string } {
+  checkCwd();
+  if (_resumePrompt) return _resumePrompt;
   const config = loadYaml("resume.yaml");
   const system = (config.system as string) ?? "You are a resume expert. Tailor the resume to the job while preserving section structure. Output markdown.";
   const userTemplate = (config.userTemplate as string) ?? "Job: {{jobTitle}} at {{company}}\n\n{{jobDescription}}\n\nResume structure:\n{{resumeStructure}}\n\nContent:\n{{resumeContent}}";
-  return { system, userTemplate };
+  _resumePrompt = { system, userTemplate };
+  return _resumePrompt;
 }
 
 export function loadCoverPromptConfig(): { system: string; userTemplate: string } {
+  checkCwd();
+  if (_coverPrompt) return _coverPrompt;
   const config = loadYaml("cover.yaml");
   const system = (config.system as string) ?? "You are a cover letter writer. Write a concise, tailored cover letter. Output plain text or markdown.";
   const userTemplate = (config.userTemplate as string) ?? "Job: {{jobTitle}} at {{company}}\n\n{{jobDescription}}\n\nResume summary: {{resumeSummary}}";
-  return { system, userTemplate };
+  _coverPrompt = { system, userTemplate };
+  return _coverPrompt;
+}
+
+export function resetPromptCache(): void {
+  _resumePrompt = null;
+  _coverPrompt = null;
+  _cachedCwd = null;
 }
 
 export function fillTemplate(template: string, vars: Record<string, string>): string {
