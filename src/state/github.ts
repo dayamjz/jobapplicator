@@ -16,6 +16,21 @@ function safeTitle(s: string): string {
   return s.replace(/["`$\\]/g, "");
 }
 
+function stageJobFiles(repoRelativeJobPath: string): void {
+  const filesToStage = [
+    "meta.json",
+    "job-description.md",
+    "resume.md",
+    "cover.md",
+  ];
+  for (const fileName of filesToStage) {
+    const relPath = `${repoRelativeJobPath}/${fileName}`;
+    if (existsSync(relPath)) {
+      run(`git add -f "${relPath}"`);
+    }
+  }
+}
+
 function remoteBranchExists(branchName: string): boolean {
   try {
     const out = run(`git ls-remote --heads origin "${branchName}"`);
@@ -42,12 +57,10 @@ export async function openPrForJob(job: Job): Promise<void> {
   }
 
   try {
-    try {
-      run(`git checkout -b "${branchName}"`);
-    } catch {
-      run(`git checkout "${branchName}"`);
-    }
-    run(`git add -f "${repoRelativeJobPath}/"`);
+    // Always recreate local application branch from current HEAD (main)
+    // to avoid stale local branch state causing checkout conflicts.
+    run(`git checkout -B "${branchName}"`);
+    stageJobFiles(repoRelativeJobPath);
     run(`git commit -m "Application: ${safeTitle(job.title)} at ${safeTitle(job.company)}"`);
     try {
       run(`git push origin "${branchName}"`);

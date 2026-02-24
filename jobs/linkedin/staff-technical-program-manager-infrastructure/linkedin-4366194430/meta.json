@@ -1,16 +1,12 @@
 {
   "company": "LinkedIn",
   "title": "Staff Technical Program Manager, Infrastructure",
-  "URL": "https://www.linkedin.com/jobs/view/staff-technical-program-manager-infrastructure-at-linkedin-4366194430?position=1&pageNum=0&refId=KkMxbnvNHeM%2FArt2wJfnHg%3D%3D&trackingId=CsHajNyPXbWHq3nnsfMlxQ%3D%3D",
+  "URL": "https://www.linkedin.com/jobs/view/staff-technical-program-manager-infrastructure-at-linkedin-4366194430?position=1&pageNum=0&refId=g12hd4bNKw4Gcl4liGSfKw%3D%3D&trackingId=0oSHhZ0%2BjMi1mF1cGnT4Sw%3D%3D",
   "site": "linkedin",
-  "searchId": "sr-tpm-remote",
+  "searchId": "sr-tpm",
   "jobId": "linkedin-4366194430",
   "idSource": "site_prefixed",
-  "status": "needs_manual",
-  "lastError": {
-    "message": "Apply flow did not reach submission",
-    "at": "2026-02-23T21:34:38.754Z"
-  },
+  "status": "approved",
   "compensation": "",
   "pay": ""
 }

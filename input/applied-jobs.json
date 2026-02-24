@@ -1,4 +1,55 @@
 {
   "applied": [],
-  "openedPrs": []
+  "openedPrs": [
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4366194430",
+      "openedAt": "2026-02-24T04:06:08.294Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4374164280",
+      "openedAt": "2026-02-24T04:12:39.476Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4367600626",
+      "openedAt": "2026-02-24T04:12:41.944Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4302464098",
+      "openedAt": "2026-02-24T04:12:44.442Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4367135351",
+      "openedAt": "2026-02-24T04:12:47.115Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4374771610",
+      "openedAt": "2026-02-24T04:12:49.633Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4366944467",
+      "openedAt": "2026-02-24T04:12:51.931Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4373076324",
+      "openedAt": "2026-02-24T04:12:54.543Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4373077311",
+      "openedAt": "2026-02-24T04:12:57.026Z"
+    },
+    {
+      "site": "linkedin",
+      "jobId": "linkedin-4367494372",
+      "openedAt": "2026-02-24T04:12:59.893Z"
+    }
+  ]
 }

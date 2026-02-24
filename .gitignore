@@ -6,6 +6,8 @@ input/auth/
 *.log
 .DS_Store
 jobs/
+jobs/**/resume.docx
+jobs/**/screenshots/
 !input/
 input/answer-cache.json
 input/*.docx
