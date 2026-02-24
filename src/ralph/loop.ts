@@ -3,8 +3,7 @@
  * verifyCompletion: all jobs processed for each location/site pass.
  * Resume structure is extracted once at startup and reused for all jobs.
  */
-import { chromium } from "playwright";
-import type { BrowserContext, Browser } from "playwright";
+import type { BrowserContext } from "playwright";
 import type { Site, Job, RunConfig } from "../types.js";
 import { getLocations } from "../types.js";
 import { loadConfig } from "../config/index.js";
@@ -14,45 +13,48 @@ import type { PrebuiltPrompts } from "../generation/generate.js";
 import { extractResumeStructure } from "../generation/docx.js";
 import type { ResumeStructure } from "../generation/docx.js";
 import { searchLinkedIn, launchLinkedInContext } from "../sites/linkedin/search.js";
-import { searchIndeed } from "../sites/indeed/search.js";
-import { searchGreenhouse } from "../sites/greenhouse/search.js";
+import type { SiteSearchResult } from "../sites/types.js";
 import { openPrForJob } from "../state/github.js";
 import { migrateJobsToCompanyTitleLayout } from "../utils/job-path.js";
 
 interface SharedBrowsers {
   linkedInContext: BrowserContext;
-  generalBrowser: Browser;
 }
+
+const TARGET_EASY_JOBS_PER_RUN = 10;
+const MAX_CARDS_TO_SCAN_PER_LOCATION = 200;
 
 export async function runSiteLoop(
   site: Site,
   searchId: string,
   search: RunConfig["searches"][0],
   location: string,
+  remainingTarget: number,
   resumeStructure?: ResumeStructure,
   prebuiltPrompts?: PrebuiltPrompts,
   browsers?: SharedBrowsers
-): Promise<{ processed: number; stoppedReason: string }> {
+): Promise<{ processed: number; considered: number; stoppedReason: string }> {
+  if (remainingTarget <= 0) {
+    return { processed: 0, considered: 0, stoppedReason: "cap_reached" };
+  }
   const config = loadConfig();
-  // Cap intentionally disabled: fetch a broad slice per pass.
-  const maxJobs = 200;
-  let searchResult: { jobs: Job[] };
+  // Scan broadly per location; stop globally when target easy jobs is reached.
+  const maxJobs = MAX_CARDS_TO_SCAN_PER_LOCATION;
+  let searchResult: SiteSearchResult;
   switch (site) {
     case "linkedin":
       searchResult = await searchLinkedIn(search, searchId, config.delays, maxJobs, location, browsers?.linkedInContext);
       break;
-    case "indeed":
-      searchResult = await searchIndeed(search, searchId, config.delays, maxJobs, location, browsers?.generalBrowser);
-      break;
-    case "greenhouse":
-      searchResult = await searchGreenhouse(search, searchId, config.delays, maxJobs, location, browsers?.generalBrowser);
-      break;
     default:
-      return { processed: 0, stoppedReason: "unknown_site" };
+      return { processed: 0, considered: 0, stoppedReason: "unknown_site" };
   }
+  const considered = searchResult.considered ?? searchResult.jobs.length;
 
   let processed = 0;
   for (const job of searchResult.jobs) {
+    if (processed >= remainingTarget) {
+      return { processed, considered, stoppedReason: "cap_reached" };
+    }
     if (isInAppliedList(site, job.jobId)) continue;
 
     await generateForJob(job, config.resumePath, config, resumeStructure, prebuiltPrompts);
@@ -66,7 +68,8 @@ export async function runSiteLoop(
 
   return {
     processed,
-    stoppedReason: "no_more_jobs",
+    considered,
+    stoppedReason: processed >= remainingTarget ? "cap_reached" : "no_more_jobs",
   };
 }
 
@@ -85,21 +88,39 @@ export async function runAllSites(): Promise<void> {
   const prebuiltPrompts = buildPrebuiltPrompts(resumeStructure);
 
   const linkedInContext = await launchLinkedInContext();
-  const generalBrowser = await chromium.launch({ headless: true });
-  const browsers: SharedBrowsers = { linkedInContext, generalBrowser };
+  const browsers: SharedBrowsers = { linkedInContext };
+  let processedThisRun = 0;
+  let consideredThisRun = 0;
 
   try {
     for (const search of config.searches) {
+      if (processedThisRun >= TARGET_EASY_JOBS_PER_RUN) break;
       const locations = getLocations(search);
       for (const location of locations) {
-        for (const site of ["linkedin", "indeed", "greenhouse"] as Site[]) {
-          const result = await runSiteLoop(site, search.id, search, location, resumeStructure, prebuiltPrompts, browsers);
-          console.log(`[${site}] ${search.id} (${location}): processed ${result.processed}, reason: ${result.stoppedReason}`);
+        if (processedThisRun >= TARGET_EASY_JOBS_PER_RUN) break;
+        for (const site of ["linkedin"] as Site[]) {
+          const remainingTarget = TARGET_EASY_JOBS_PER_RUN - processedThisRun;
+          const result = await runSiteLoop(
+            site,
+            search.id,
+            search,
+            location,
+            remainingTarget,
+            resumeStructure,
+            prebuiltPrompts,
+            browsers
+          );
+          processedThisRun += result.processed;
+          consideredThisRun += result.considered;
+          console.log(`[${site}] ${search.id} (${location}): processed ${result.processed}, considered ${result.considered}, reason: ${result.stoppedReason}`);
+          if (processedThisRun >= TARGET_EASY_JOBS_PER_RUN) {
+            console.log(`Reached per-run Easy Apply target: ${processedThisRun}/${TARGET_EASY_JOBS_PER_RUN} jobs (considered ${consideredThisRun}).`);
+            break;
+          }
         }
       }
     }
   } finally {
     await linkedInContext.close();
-    await generalBrowser.close();
   }
 }

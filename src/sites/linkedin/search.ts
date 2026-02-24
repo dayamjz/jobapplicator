@@ -17,6 +17,8 @@ export function buildSearchUrl(search: SearchConfig, location: string): string {
   const params = new URLSearchParams();
   params.set("keywords", search.keywords);
   params.set("location", location);
+  // Force LinkedIn "Easy Apply" search filter.
+  params.set("f_AL", "true");
   const linkedinParams = search.urlParams?.linkedin ?? {};
   for (const [k, v] of Object.entries(linkedinParams)) {
     params.set(k, v);
@@ -98,7 +100,7 @@ export async function searchLinkedIn(
       await delaySearchResultClick(delayConfig);
     }
 
-    return { jobs, hasMore: cards.length >= maxJobs };
+    return { jobs, hasMore: cards.length >= maxJobs, considered: Math.min(cards.length, maxJobs) };
   } finally {
     if (ownContext) await context.close();
   }

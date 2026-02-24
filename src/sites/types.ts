@@ -4,6 +4,7 @@ import type { SearchConfig } from "../types.js";
 export interface SiteSearchResult {
   jobs: Job[];
   hasMore: boolean;
+  considered?: number;
 }
 
 export interface BuildSearchUrlOptions {

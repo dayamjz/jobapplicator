@@ -1,14 +1,16 @@
 {
   "company": "Ripple",
   "title": "Senior Staff Technical Program Manager",
-  "URL": "https://www.linkedin.com/jobs/view/senior-staff-technical-program-manager-at-ripple-4302464098?position=4&pageNum=0&refId=17H99cl8Z6%2B%2Fk63Bd%2FMsJg%3D%3D&trackingId=Fcl%2BhSBTRcPaqxIDjLplfQ%3D%3D",
+  "URL": "https://www.linkedin.com/jobs/view/senior-staff-technical-program-manager-at-ripple-4302464098?position=4&pageNum=0&refId=dAUMZgtz92usMW0hV5VnuQ%3D%3D&trackingId=AOsnLSwajsfbXSEplNFVAw%3D%3D",
   "site": "linkedin",
   "searchId": "sr-tpm",
   "jobId": "linkedin-4302464098",
   "idSource": "site_prefixed",
-  "status": "applied",
-  "appliedAt": "2026-02-23T21:28:22.081Z",
-  "lastError": null,
+  "status": "needs_manual",
   "compensation": "",
-  "pay": ""
+  "pay": "",
+  "lastError": {
+    "message": "Apply flow did not reach submission",
+    "at": "2026-02-24T00:36:52.067Z"
+  }
 }

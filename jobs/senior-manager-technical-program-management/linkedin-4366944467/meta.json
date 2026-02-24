@@ -6,7 +6,12 @@
   "searchId": "sr-tpm",
   "jobId": "linkedin-4366944467",
   "idSource": "site_prefixed",
-  "status": "approved",
+  "status": "needs_manual",
   "compensation": "",
-  "pay": ""
+  "pay": "",
+  "lastError": {
+    "message": "page.evaluate: Target page, context or browser has been closed",
+    "stack": "page.evaluate: Target page, context or browser has been closed\n    at isLoginPage (/Users/joelzambrano/Cursor/Applicator/src/apply/form-filler.ts:295:15)\n    at applyOnGeneric (/Users/joelzambrano/Cursor/Applicator/src/apply/ats/generic.ts:83:13)\n    at handleExternalApply (/Users/joelzambrano/Cursor/Applicator/src/sites/linkedin/apply.ts:322:22)\n    at async runApplyForJob (/Users/joelzambrano/Cursor/Applicator/src/apply/runner.ts:167:17)",
+    "at": "2026-02-24T00:37:10.528Z"
+  }
 }

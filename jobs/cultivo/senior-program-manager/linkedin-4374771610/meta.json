@@ -1,14 +1,16 @@
 {
   "company": "Cultivo",
   "title": "Senior Program Manager",
-  "URL": "https://www.linkedin.com/jobs/view/senior-program-manager-at-cultivo-4374771610?position=6&pageNum=0&refId=17H99cl8Z6%2B%2Fk63Bd%2FMsJg%3D%3D&trackingId=%2BqDkVp19jobGTDJ9jL9QXQ%3D%3D",
+  "URL": "https://www.linkedin.com/jobs/view/senior-program-manager-at-cultivo-4374771610?position=6&pageNum=0&refId=dAUMZgtz92usMW0hV5VnuQ%3D%3D&trackingId=RQZPKQM%2BHMaQJAdVR2IhaA%3D%3D",
   "site": "linkedin",
   "searchId": "sr-tpm",
   "jobId": "linkedin-4374771610",
   "idSource": "site_prefixed",
-  "status": "applied",
-  "appliedAt": "2026-02-23T21:01:54.790Z",
-  "lastError": null,
+  "status": "needs_manual",
   "compensation": "",
-  "pay": ""
+  "pay": "",
+  "lastError": {
+    "message": "Apply flow did not reach submission",
+    "at": "2026-02-24T00:30:25.097Z"
+  }
 }

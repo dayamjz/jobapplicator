@@ -26,7 +26,7 @@ import { loadProfile, loadQuestionTemplates } from "../utils/profile.js";
 import { getResumeForUpload } from "../utils/resume-convert.js";
 import { getBrowserProfileDir } from "../utils/auth.js";
 import { migrateJobsToCompanyTitleLayout } from "../utils/job-path.js";
-import { applyLinkedIn } from "../sites/linkedin/apply.js";
+import { applyLinkedIn, findLinkedInApplyButtonType } from "../sites/linkedin/apply.js";
 import { applyIndeed } from "../sites/indeed/apply.js";
 import type { Site, AppliedJobEntry } from "../types.js";
 
@@ -239,6 +239,36 @@ export async function runApplyForJob(
   }
 }
 
+async function prioritizeLinkedInEasyApply(
+  list: JobFolder[],
+  context: BrowserContext,
+): Promise<JobFolder[]> {
+  const easy: JobFolder[] = [];
+  const skipped: JobFolder[] = [];
+  for (const job of list) {
+    const page = await context.newPage();
+    try {
+      await page.goto(job.url, { waitUntil: "domcontentloaded", timeout: 15000 }).catch(() => {});
+      const applyType = await findLinkedInApplyButtonType(page);
+      if (applyType === "easy") {
+        easy.push(job);
+      } else {
+        skipped.push(job);
+      }
+    } catch {
+      skipped.push(job);
+    } finally {
+      await page.close().catch(() => {});
+    }
+  }
+  console.log(`LinkedIn Easy Apply-only mode: ${easy.length} eligible, ${skipped.length} skipped (non-easy/no apply).`);
+  if (skipped.length > 0) {
+    const preview = skipped.slice(0, 5).map((j) => `${j.role} @ ${j.company}`).join("; ");
+    console.log(`  Skipped examples: ${preview}${skipped.length > 5 ? "; ..." : ""}`);
+  }
+  return easy;
+}
+
 export async function runApplyLoop(options: RunApplyLoopOptions = {}): Promise<void> {
   const { migrated } = migrateJobsToCompanyTitleLayout();
   if (migrated > 0) {
@@ -298,14 +328,17 @@ export async function runApplyLoop(options: RunApplyLoopOptions = {}): Promise<v
   try {
     let run = 0;
     for (const [site, list] of bySite) {
+      const orderedList = site === "linkedin"
+        ? await prioritizeLinkedInEasyApply(list, context)
+        : list;
       const max = config.maxApplicationsPerSitePerWindow;
       const inWindow = applied.filter(
         (e) => e.site === site && new Date(e.appliedAt).getTime() >= Date.now() - WINDOW_MS
       ).length;
-      const toRun = Math.min(list.length, max - inWindow);
+      const toRun = Math.min(orderedList.length, max - inWindow);
       console.log(`\n--- ${site}: ${toRun} jobs to apply ---`);
       for (let i = 0; i < toRun; i++) {
-        const ok = await runApplyForJob(list[i], context, browser);
+        const ok = await runApplyForJob(orderedList[i], context, browser);
         if (ok) run++;
         await delayBetweenApplications(config.delays);
       }

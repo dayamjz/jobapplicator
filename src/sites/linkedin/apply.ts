@@ -30,47 +30,91 @@ export interface LinkedInApplyOptions {
   dryRun: boolean;
 }
 
-async function findApplyButton(page: Page): Promise<"easy" | "external" | null> {
-  const easyApplyLink = await page.$("a[aria-label*='Easy Apply']");
-  if (easyApplyLink) return "easy";
+export type LinkedInApplyType = "easy" | "external" | null;
 
-  const cssBtn = await page.$("button[aria-label*='Easy Apply'], a[aria-label*='Easy Apply']");
-  if (cssBtn) return "easy";
-
-  const textBtn = page.locator("button, a", { hasText: /Easy Apply/i });
-  if (await textBtn.count() > 0) return "easy";
-
-  const externalLink = await page.$("a.jobs-apply-button--top-card, a[data-tracking-control-name*='apply'], a[aria-label*='Apply'], button.jobs-apply-button, a.jobs-apply-button");
-  if (externalLink) {
-    const aria = await externalLink.getAttribute("aria-label") ?? "";
-    if (aria.toLowerCase().includes("easy")) return "easy";
-    return "external";
+export async function findLinkedInApplyButtonType(page: Page): Promise<LinkedInApplyType> {
+  const easyLocators = [
+    page.locator("button.jobs-apply-button, button.jobs-apply-button--top-card").filter({ hasText: /Easy Apply/i }).first(),
+    page.locator("a.jobs-apply-button, a.jobs-apply-button--top-card").filter({ hasText: /Easy Apply/i }).first(),
+    page.locator("button[aria-label*='Easy Apply'], a[aria-label*='Easy Apply']").first(),
+  ];
+  for (const loc of easyLocators) {
+    if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) return "easy";
   }
 
-  const externalText = page.locator("a", { hasText: /Apply on company/i });
-  if (await externalText.count() > 0) return "external";
-
-  const externalButtonText = page.locator("button", { hasText: /Apply on company|Apply on company site|Apply externally/i });
-  if (await externalButtonText.count() > 0) return "external";
+  const externalLocators = [
+    page.locator("a.jobs-apply-button, button.jobs-apply-button, a.jobs-apply-button--top-card, button.jobs-apply-button--top-card").first(),
+    page.locator("a", { hasText: /Apply on company|Apply on company site|Apply externally/i }).first(),
+    page.locator("button", { hasText: /Apply on company|Apply on company site|Apply externally/i }).first(),
+  ];
+  for (const loc of externalLocators) {
+    if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) return "external";
+  }
 
   return null;
 }
 
 async function handleEasyApplyModal(opts: LinkedInApplyOptions): Promise<boolean> {
-  const { page, job, profile, resumePath, coverText, delays, dryRun } = opts;
+  const { page, context, job, profile, resumePath, coverText, delays, dryRun } = opts;
 
-  let applyBtn = await page.$("a[aria-label*='Easy Apply'], button[aria-label*='Easy Apply']");
-  if (!applyBtn) {
-    const loc = page.locator("button, a", { hasText: /Easy Apply/i }).first();
-    if (await loc.count() > 0) applyBtn = await loc.elementHandle();
+  const easyButtonCandidates = [
+    page.locator("button.jobs-apply-button, button.jobs-apply-button--top-card").filter({ hasText: /Easy Apply/i }).first(),
+    page.locator("a.jobs-apply-button, a.jobs-apply-button--top-card").filter({ hasText: /Easy Apply/i }).first(),
+    page.locator("button[aria-label*='Easy Apply'], a[aria-label*='Easy Apply']").first(),
+  ];
+
+  let applyBtnLoc = null as null | ReturnType<Page["locator"]>;
+  for (const loc of easyButtonCandidates) {
+    if (await loc.count() > 0 && await loc.isVisible().catch(() => false)) {
+      applyBtnLoc = loc;
+      break;
+    }
   }
-  if (!applyBtn) return false;
-  console.log(`  [linkedin] Found Easy Apply element: <${await applyBtn.evaluate(el => el.tagName)}> aria="${await applyBtn.getAttribute("aria-label")}"`);
-  await applyBtn.click();
+  if (!applyBtnLoc) return false;
+
+  const btnText = (await applyBtnLoc.textContent().catch(() => ""))?.trim() ?? "";
+  console.log(`  [linkedin] Found Easy Apply element: "${btnText}"`);
+
+  const newPageWait = context.waitForEvent("page", { timeout: 7000 }).catch(() => null);
+  await applyBtnLoc.scrollIntoViewIfNeeded().catch(() => {});
+  await applyBtnLoc.click({ force: true, timeout: 5000 }).catch(async () => {
+    await page.evaluate(() => {
+      const cands = Array.from(document.querySelectorAll("button, a"));
+      const el = cands.find((node) => {
+        const txt = (node.textContent || "").toLowerCase();
+        const aria = (node.getAttribute("aria-label") || "").toLowerCase();
+        return txt.includes("easy apply") || aria.includes("easy apply");
+      }) as HTMLElement | undefined;
+      el?.click();
+    }).catch(() => {});
+  });
   await delayPageLoad(delays);
 
-  const modal = await page.waitForSelector(".jobs-easy-apply-modal, .jobs-easy-apply-content, [data-test-modal]", { timeout: 5000 }).catch(() => null);
+  let modal = await page.waitForSelector(
+    ".jobs-easy-apply-modal, .jobs-easy-apply-content, .artdeco-modal, .artdeco-modal__content, [data-test-modal], [role='dialog']",
+    { timeout: 7000 }
+  ).catch(() => null);
+
   if (!modal) {
+    // Retry one extra click in case the first one was intercepted by overlays.
+    await applyBtnLoc.click({ force: true, timeout: 5000 }).catch(() => {});
+    await delayPageLoad(delays);
+    modal = await page.waitForSelector(
+      ".jobs-easy-apply-modal, .jobs-easy-apply-content, .artdeco-modal, .artdeco-modal__content, [data-test-modal], [role='dialog']",
+      { timeout: 5000 }
+    ).catch(() => null);
+  }
+
+  if (!modal) {
+    const spawned = await newPageWait;
+    if (spawned) {
+      await spawned.close().catch(() => {});
+    }
+    const fallbackType = await findLinkedInApplyButtonType(page);
+    if (fallbackType === "external") {
+      console.log("  [linkedin] Easy modal missing; falling back to external apply handler");
+      return handleExternalApply(opts);
+    }
     console.warn("  [linkedin] Easy Apply modal did not appear");
     return false;
   }
@@ -335,7 +379,7 @@ export async function applyLinkedIn(opts: LinkedInApplyOptions): Promise<boolean
   console.log(`  [linkedin] Page title: ${await page.title()}`);
   await takeScreenshot(page, job.path, "linkedin-page-loaded");
 
-  const applyType = await findApplyButton(page);
+  const applyType = await findLinkedInApplyButtonType(page);
   console.log(`  [linkedin] Apply button type: ${applyType ?? "none found"}`);
 
   if (applyType === "easy") {
