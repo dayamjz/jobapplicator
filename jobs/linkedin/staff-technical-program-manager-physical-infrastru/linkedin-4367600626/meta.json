@@ -1,17 +1,12 @@
 {
   "company": "LinkedIn",
   "title": "Staff Technical Program Manager, Physical Infrastructure",
-  "URL": "https://www.linkedin.com/jobs/view/staff-technical-program-manager-physical-infrastructure-at-linkedin-4367600626?position=3&pageNum=0&refId=dAUMZgtz92usMW0hV5VnuQ%3D%3D&trackingId=pb%2FiYi6gptEIWzHLWvqPiQ%3D%3D",
+  "URL": "https://www.linkedin.com/jobs/view/staff-technical-program-manager-physical-infrastructure-at-linkedin-4367600626?position=3&pageNum=0&refId=Pabw3Og3AVx0ea2cYLsWbQ%3D%3D&trackingId=rlciCNcoVwt1O48f7LR0AA%3D%3D",
   "site": "linkedin",
   "searchId": "sr-tpm",
   "jobId": "linkedin-4367600626",
   "idSource": "site_prefixed",
-  "status": "needs_manual",
+  "status": "approved",
   "compensation": "",
-  "pay": "",
-  "lastError": {
-    "message": "page.goto: net::ERR_ABORTED; maybe frame was detached?\nCall log:\n  - navigating to \"https://www.linkedin.com/jobs/view/staff-technical-program-manager-physical-infrastructure-at-linkedin-4367600626?position=3&pageNum=0&refId=dAUMZgtz92usMW0hV5VnuQ%3D%3D&trackingId=pb%2FiYi6gptEIWzHLWvqPiQ%3D%3D\", waiting until \"domcontentloaded\"\n",
-    "stack": "page.goto: net::ERR_ABORTED; maybe frame was detached?\nCall log:\n  - navigating to \"https://www.linkedin.com/jobs/view/staff-technical-program-manager-physical-infrastructure-at-linkedin-4367600626?position=3&pageNum=0&refId=dAUMZgtz92usMW0hV5VnuQ%3D%3D&trackingId=pb%2FiYi6gptEIWzHLWvqPiQ%3D%3D\", waiting until \"domcontentloaded\"\n\n    at applyLinkedIn (/Users/joelzambrano/Cursor/Applicator/src/sites/linkedin/apply.ts:333:14)",
-    "at": "2026-02-24T00:36:42.241Z"
-  }
+  "pay": ""
 }
